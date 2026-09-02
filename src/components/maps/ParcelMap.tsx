@@ -1,0 +1,197 @@
+import { useEffect, useRef, useState } from 'react';
+import * as maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { useParcelsGeoJson, statusColor } from '../../hooks/useParcels';
+import type { Parcel } from '../../lib/types';
+import MapControls from './MapControls';
+
+interface ParcelMapProps {
+  projectId?: string;
+  onParcelSelect?: (parcel: Parcel) => void;
+  selectedParcelId?: string | null;
+  height?: string;
+}
+
+const INDIA_CENTER: [number, number] = [78.9629, 20.5937];
+const STATUS_LEGEND: Record<string, string> = {
+  identified: '#93C5FD',
+  notified: '#FDE68A',
+  surveyed: '#6EE7B7',
+  acquired: '#86EFAC',
+  disputed: '#FCA5A5',
+};
+
+export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId, height = '500px' }: ParcelMapProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const popupRef = useRef<maplibregl.Popup | null>(null);
+  const [filter, setFilter] = useState<string>('all');
+  const [search, setSearch] = useState('');
+
+  const { geoJson } = useParcelsGeoJson(null, projectId);
+
+  // Filter geojson by search + status before adding to map
+  const filtered = {
+    ...geoJson,
+    features: geoJson.features.filter((f) => {
+      const pn = String(f.properties.parcel_number ?? '');
+      const status = String(f.properties.status ?? '');
+      if (filter !== 'all' && status !== filter) return false;
+      if (search && !pn.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    }),
+  };
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: {
+        version: 8,
+        sources: {
+          osm: {
+            type: 'raster',
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            attribution: '© OpenStreetMap',
+          },
+        },
+        layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+      },
+      center: INDIA_CENTER,
+      zoom: 4,
+    });
+
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    map.on('load', () => {
+      map.addSource('parcels', { type: 'geojson', data: filtered as unknown as never });
+
+      // Fill layer — color by status (using feature property)
+      map.addLayer({
+        id: 'parcels-fill',
+        type: 'fill',
+        source: 'parcels',
+        paint: {
+          'fill-color': [
+            'match',
+            ['get', 'status'],
+            'identified', STATUS_LEGEND.identified,
+            'notified', STATUS_LEGEND.notified,
+            'surveyed', STATUS_LEGEND.surveyed,
+            'acquired', STATUS_LEGEND.acquired,
+            'disputed', STATUS_LEGEND.disputed,
+            '#CBD5E1',
+          ],
+          'fill-opacity': 0.6,
+        },
+      });
+
+      map.addLayer({
+        id: 'parcels-outline',
+        type: 'line',
+        source: 'parcels',
+        paint: {
+          'line-color': '#0F172A',
+          'line-width': 1.5,
+          'line-opacity': 0.9,
+        },
+      });
+
+      // Hover: highlight boundary width
+      map.addLayer({
+        id: 'parcels-highlight',
+        type: 'line',
+        source: 'parcels',
+        paint: { 'line-color': '#0369A1', 'line-width': 3 },
+        filter: ['==', ['get', 'parcel_number'], ''],
+      });
+
+      map.on('mousemove', 'parcels-fill', (e: { features?: { properties: Record<string, unknown> }[] }) => {
+        map.getCanvas().style.cursor = 'pointer';
+        const f = e.features?.[0];
+        if (f) map.setFilter('parcels-highlight', ['==', ['get', 'parcel_number'], f.properties.parcel_number as string]);
+      });
+      map.on('mouseleave', 'parcels-fill', () => {
+        map.getCanvas().style.cursor = '';
+        map.setFilter('parcels-highlight', ['==', ['get', 'parcel_number'], '']);
+      });
+
+      // Click → popup + callback
+      map.on('click', 'parcels-fill', (e: { features?: { properties: Record<string, unknown> }[]; lngLat: maplibregl.LngLat }) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        const props = f.properties as Record<string, unknown>;
+        const parcel = (props._parcel as Parcel | undefined) ?? (props as unknown as Parcel);
+
+        if (popupRef.current) popupRef.current.remove();
+        popupRef.current = new maplibregl.Popup({ closeOnClick: true })
+          .setLngLat(e.lngLat)
+          .setHTML(
+            `<div style="font-family:system-ui;padding:4px;min-width:160px"><div style="font-weight:600;font-size:13px">${props.parcel_number}</div><div style="font-size:12px;color:#475569">Owner: ${props.owner_name ?? '-'}<br/>Status: ${props.status}<br/>Area: ${props.area_hectares ?? '-'} ha</div></div>`,
+          )
+          .addTo(map);
+
+        if (parcel && onParcelSelect) onParcelSelect(parcel);
+      });
+
+      // Fit to parcels if available
+      if (filtered.features.length > 0) {
+        const bounds = new maplibregl.LngLatBounds();
+        filtered.features.forEach((f) => {
+          const geom = f.geometry as { coordinates: number[][][] };
+          geom.coordinates[0].forEach(([lng, lat]) => bounds.extend([lng, lat]));
+        });
+        map.fitBounds(bounds, { padding: 40, maxZoom: 14 });
+      }
+    });
+
+    mapRef.current = map;
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Update source data when filtered changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.getSource('parcels')) return;
+    const src = map.getSource('parcels') as maplibregl.GeoJSONSource;
+    src.setData(filtered as unknown as never);
+  }, [filtered]);
+
+  // Highlight selected parcel
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.getLayer('parcels-highlight')) return;
+    if (selectedParcelId) {
+      const feat = filtered.features.find((f) => f.id === selectedParcelId);
+      if (feat) map.setFilter('parcels-highlight', ['==', ['get', 'parcel_number'], feat.properties.parcel_number as string]);
+    }
+  }, [selectedParcelId, filtered]);
+
+  // Export status color helper for controls
+  return (
+    <div className="relative border border-slate-200 rounded-xl overflow-hidden bg-white" style={{ height }}>
+      <div ref={containerRef} className="w-full h-full" aria-label="Parcel map" role="application" />
+      <MapControls
+        filter={filter}
+        onFilter={setFilter}
+        search={search}
+        onSearch={setSearch}
+        legend={STATUS_LEGEND}
+        onZoomIn={() => mapRef.current?.zoomIn()}
+        onZoomOut={() => mapRef.current?.zoomOut()}
+        statusColor={statusColor}
+      />
+      {!filtered.features.length && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white/60 pointer-events-none">
+          <span className="text-sm text-slate-500 bg-white border border-slate-200 rounded-full px-3 py-1 shadow-sm">No parcels match filters</span>
+        </div>
+      )}
+    </div>
+  );
+}

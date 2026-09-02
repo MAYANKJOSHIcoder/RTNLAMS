@@ -34,8 +34,10 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
 -- ---------------------------------------------------------------------------
 -- 2. projects
 -- ---------------------------------------------------------------------------
+-- Changed id from UUID to varchar(255) to accept seed data IDs (p-highway, p-rail, p-industrial)
+-- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.projects (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id varchar(255) PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
   corridor_type TEXT NOT NULL CHECK (corridor_type IN ('highway','rail','industrial','other')),
@@ -53,7 +55,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.parcels (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  project_id varchar(255) NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   parcel_number TEXT NOT NULL UNIQUE,
   owner_name TEXT NOT NULL,
   owner_cnic TEXT, -- link for citizen RLS

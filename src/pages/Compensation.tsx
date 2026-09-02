@@ -1,3 +1,25 @@
+import { useParams } from "react-router-dom";
+import { useCompensation } from "../hooks/useCompensation";
+import CompensationForm from "../components/compensation/CompensationForm";
+import PaymentDashboard from "../components/compensation/PaymentDashboard";
+
 export default function Compensation() {
-  return <div className="p-6"><h1 className="text-2xl font-semibold text-slate-900">Compensation</h1><p className="text-slate-500 mt-2">Placeholder - will be implemented in PROMPT 6/19-21.</p></div>;
-}
+  const { id: selectedId } = useParams();
+  const { data: awards = [] } = useCompensation(selectedId);
+
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold text-slate-900 mb-4">
+        Compensation{" "}
+        {selectedId ? `(Parcel ID: ${selectedId})` : ""}
+      </h1>
+
+      {selectedId ? (
+        <>
+          <CompensationForm award={awards?.[0] ?? null} onSave={() => {}} />
+          <PaymentDashboard awards={awards ?? []} />
+        </>
+      ) : null}
+    </div>
+  );
+}

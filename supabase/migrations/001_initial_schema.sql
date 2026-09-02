@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
 -- 3. parcels
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.parcels (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id varchar(255) PRIMARY KEY,
   project_id varchar(255) NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   parcel_number TEXT NOT NULL UNIQUE,
   owner_name TEXT NOT NULL,
@@ -76,8 +76,8 @@ CREATE TABLE IF NOT EXISTS public.parcels (
 -- 4. documents
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.documents (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  parcel_id UUID NOT NULL REFERENCES public.parcels(id) ON DELETE CASCADE,
+  id varchar(255) PRIMARY KEY DEFAULT uuid_generate_v4(),
+  parcel_id varchar(255) NOT NULL REFERENCES public.parcels(id) ON DELETE CASCADE,
   doc_type TEXT NOT NULL, -- deed, survey_map, handwritten_deed etc.
   file_url TEXT NOT NULL,
   file_name TEXT,
@@ -98,8 +98,8 @@ CREATE TABLE IF NOT EXISTS public.documents (
 -- 5. acquisition_stages
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.acquisition_stages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  parcel_id UUID NOT NULL REFERENCES public.parcels(id) ON DELETE CASCADE,
+  id varchar(255) PRIMARY KEY DEFAULT uuid_generate_v4(),
+  parcel_id varchar(255) NOT NULL REFERENCES public.parcels(id) ON DELETE CASCADE,
   stage_number INT NOT NULL CHECK (stage_number BETWEEN 1 AND 12),
   stage_name TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('pending','in_progress','completed','breached')) DEFAULT 'pending',
@@ -116,8 +116,8 @@ CREATE TABLE IF NOT EXISTS public.acquisition_stages (
 -- 6. hearings
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.hearings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  parcel_id UUID NOT NULL REFERENCES public.parcels(id) ON DELETE CASCADE,
+  id varchar(255) PRIMARY KEY DEFAULT uuid_generate_v4(),
+  parcel_id varchar(255) NOT NULL REFERENCES public.parcels(id) ON DELETE CASCADE,
   hearing_date TIMESTAMPTZ NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('objection','valuation','final','public')),
   outcome TEXT,
@@ -133,8 +133,8 @@ CREATE TABLE IF NOT EXISTS public.hearings (
 -- 7. compensation_awards
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.compensation_awards (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  parcel_id UUID NOT NULL REFERENCES public.parcels(id) ON DELETE CASCADE,
+  id varchar(255) PRIMARY KEY DEFAULT uuid_generate_v4(),
+  parcel_id varchar(255) NOT NULL REFERENCES public.parcels(id) ON DELETE CASCADE,
   calculated_amount NUMERIC(14,2),
   awarded_amount NUMERIC(14,2) NOT NULL,
   payment_status TEXT NOT NULL CHECK (payment_status IN ('pending','initiated','completed','failed')) DEFAULT 'pending',
@@ -151,8 +151,8 @@ CREATE TABLE IF NOT EXISTS public.compensation_awards (
 -- 8. audit_logs
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.audit_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  parcel_id UUID REFERENCES public.parcels(id) ON DELETE CASCADE,
+  id varchar(255) PRIMARY KEY DEFAULT uuid_generate_v4(),
+  parcel_id varchar(255) REFERENCES public.parcels(id) ON DELETE CASCADE,
   audit_type TEXT NOT NULL CHECK (audit_type IN ('satellite','field','compliance')),
   finding TEXT NOT NULL,
   severity TEXT NOT NULL CHECK (severity IN ('low','medium','high','critical')) DEFAULT 'medium',
@@ -168,8 +168,8 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
 -- 9. risk_assessments
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.risk_assessments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  parcel_id UUID NOT NULL REFERENCES public.parcels(id) ON DELETE CASCADE,
+  id varchar(255) PRIMARY KEY DEFAULT uuid_generate_v4(),
+  parcel_id varchar(255) NOT NULL REFERENCES public.parcels(id) ON DELETE CASCADE,
   ownership_score NUMERIC(3,2) NOT NULL CHECK (ownership_score BETWEEN 0 AND 1),
   litigation_score NUMERIC(3,2) NOT NULL CHECK (litigation_score BETWEEN 0 AND 1),
   compensation_sla_score NUMERIC(3,2) NOT NULL CHECK (compensation_sla_score BETWEEN 0 AND 1),

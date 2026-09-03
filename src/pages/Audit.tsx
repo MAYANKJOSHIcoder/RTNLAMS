@@ -1,23 +1,49 @@
 import { useParams } from "react-router-dom";
+import { useAuditLogs } from "../hooks/useAudit";
 import AuditForm from "../components/audit/AuditForm";
 import AuditLog from "../components/audit/AuditLog";
 
 export default function Audit() {
   const { id: selectedId } = useParams();
+  const { data: logs = [], isLoading } = useAuditLogs(selectedId);
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold text-slate-900 mb-4">
-        Audit{" "}
-        {selectedId ? `(Parcel ID: ${selectedId})` : ""}
+    <div className="p-6 space-y-4">
+      <h1 className="text-2xl font-semibold text-slate-900">
+        Audit {selectedId ? `(Parcel: ${selectedId})` : "(All)"}
       </h1>
 
       {selectedId ? (
-        <>
-          <AuditForm parcelId={selectedId} onSuccess={() => {}} />
-          <AuditLog parcelId={selectedId} />
-        </>
+        <AuditForm parcelId={selectedId} onSuccess={() => {}} />
       ) : null}
+
+      <AuditLog parcelId={selectedId} />
+
+      {!selectedId && (
+        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <h2 className="text-sm font-semibold text-slate-900 mb-3">All Audit Logs</h2>
+          {isLoading ? (
+            <div className="py-8 text-center text-sm text-slate-500">Loading…</div>
+          ) : logs.length === 0 ? (
+            <div className="py-8 text-center text-sm text-slate-500">No audit logs found</div>
+          ) : (
+            <div className="space-y-2">
+              {logs.map((a) => (
+                <div key={a.id} className="border border-slate-200 rounded-lg p-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="font-medium">{a.audit_type} — {a.severity}</span>
+                    <span className="text-slate-500">Parcel: {a.parcel_id ?? "N/A"}</span>
+                  </div>
+                  <div className="text-slate-600">{a.finding}</div>
+                  <div className="text-xs text-slate-400 mt-1">
+                    {a.resolved ? "Resolved" : "Unresolved"} • {new Date(a.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

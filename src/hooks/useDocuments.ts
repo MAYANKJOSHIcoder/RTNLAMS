@@ -16,11 +16,11 @@ function validateFile(file: File): string | null {
 export function useDocuments(parcelId?: string) {
   return useQuery({
     queryKey: ['documents', parcelId],
-    enabled: !!parcelId,
     queryFn: async () => {
       if (!isSupabaseConfigured()) return [] as Document[];
-      if (!parcelId) return [] as Document[];
-      const { data, error } = await supabase.from('documents').select('*').eq('parcel_id', parcelId).order('created_at', { ascending: false });
+      let q = supabase.from('documents').select('*').order('created_at', { ascending: false });
+      if (parcelId) q = q.eq('parcel_id', parcelId);
+      const { data, error } = await q;
       if (error) throw new Error(error.message);
       return (data ?? []) as Document[];
     },

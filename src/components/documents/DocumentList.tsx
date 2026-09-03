@@ -7,7 +7,7 @@ import { EmptyState } from '../ui/EmptyState';
 import type { Document as DocType } from '../../lib/types';
 
 interface DocumentListProps {
-  parcelId: string;
+  parcelId?: string;
   onView?: (doc: DocType) => void;
 }
 

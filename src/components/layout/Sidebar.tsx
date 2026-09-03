@@ -2,14 +2,16 @@ import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, Map, FileText, Gavel, Wallet, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
+import { useSlaBreaches } from '../../hooks/useStages';
+import { useAuth } from '../../context/AuthContext';
 
 const nav = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/parcels', label: 'Parcels', icon: Map },
-  { to: '/documents', label: 'Documents', icon: FileText },
-  { to: '/hearings', label: 'Hearings', icon: Gavel },
-  { to: '/compensation', label: 'Compensation', icon: Wallet },
-  { to: '/audit', label: 'Audit', icon: ShieldCheck },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
+  { to: '/parcels', label: 'Parcels', icon: Map, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
+  { to: '/documents', label: 'Documents', icon: FileText, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
+  { to: '/hearings', label: 'Hearings', icon: Gavel, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
+  { to: '/compensation', label: 'Compensation', icon: Wallet, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
+  { to: '/audit', label: 'Audit', icon: ShieldCheck, roles: ['admin', 'auditor'] },
 ];
 
 const mockProjects = [
@@ -23,6 +25,9 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
   const isCollapsed = collapsed ?? internalCollapsed;
   const toggle = onToggle ?? (() => setInternalCollapsed(!isCollapsed));
   const { projectId, setProjectId } = useProject();
+  const { data: slaBreaches = [] } = useSlaBreaches();
+  const { profile } = useAuth();
+  const userRole = profile?.role ?? 'citizen';
 
   const width = isCollapsed ? 'w-16' : 'w-64';
 
@@ -66,7 +71,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
         </button>
 
         <nav className="flex-1 px-2 py-2 space-y-1 overflow-y-auto">
-          {nav.map(({ to, label, icon: Icon }) => (
+          {nav.filter(item => item.roles.includes(userRole)).map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -90,8 +95,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
         {!isCollapsed && (
           <div className="px-3 pb-2">
             <div className="bg-amber-50 border border-amber-200 rounded-md p-2.5 text-xs">
-              <div className="font-medium text-amber-900">SLA Breaches: 3</div>
-              <div className="text-amber-700">Needs attention</div>
+              <div className="font-medium text-amber-900">SLA Breaches: {slaBreaches.length}</div>
+              <div className="text-amber-700">{slaBreaches.length > 0 ? "Needs attention" : "On track"}</div>
             </div>
           </div>
         )}

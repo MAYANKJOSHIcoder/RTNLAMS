@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Bell, ChevronDown, LogOut, Settings, User, Menu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useSlaBreaches } from '../../hooks/useStages';
 
 const crumbs: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -17,7 +18,8 @@ export default function Header({ onMenuToggle }: { onMenuToggle?: () => void }) 
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [notifCount] = useState(3); // placeholder until real notifications (PROMPT 19/20)
+  const { data: slaBreaches = [] } = useSlaBreaches();
+  const notifCount = slaBreaches.length;
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

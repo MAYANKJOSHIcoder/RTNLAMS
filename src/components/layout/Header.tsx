@@ -59,6 +59,7 @@ export default function Header({ onMenuToggle }: { onMenuToggle?: () => void }) 
       <div className="flex items-center gap-2">
         <button
           aria-label={`Notifications ${notifCount} unread`}
+          onClick={() => notifCount > 0 && navigate('/dashboard')}
           className="relative p-2 hover:bg-slate-700 rounded-md cursor-pointer transition-colors"
         >
           <Bell size={18} />

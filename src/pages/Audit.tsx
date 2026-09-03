@@ -5,7 +5,7 @@ import AuditLog from "../components/audit/AuditLog";
 
 export default function Audit() {
   const { id: selectedId } = useParams();
-  const { data: logs = [], isLoading } = useAuditLogs(selectedId);
+  const { data: logs = [], isLoading, refetch } = useAuditLogs(selectedId);
 
   return (
     <div className="p-6 space-y-4">
@@ -14,7 +14,7 @@ export default function Audit() {
       </h1>
 
       {selectedId ? (
-        <AuditForm parcelId={selectedId} onSuccess={() => {}} />
+        <AuditForm parcelId={selectedId} onSuccess={() => refetch()} />
       ) : null}
 
       <AuditLog parcelId={selectedId} />

@@ -1,11 +1,15 @@
 import { useParams } from "react-router-dom";
-import { useCompensation } from "../hooks/useCompensation";
+import { useCompensation, useCreateCompensation, useUpdateCompensation } from "../hooks/useCompensation";
 import CompensationForm from "../components/compensation/CompensationForm";
 import PaymentDashboard from "../components/compensation/PaymentDashboard";
+import type { PaymentStatus } from "../lib/types";
 
 export default function Compensation() {
   const { id: selectedId } = useParams();
   const { data: awards = [], isLoading } = useCompensation(selectedId);
+  const createAward = useCreateCompensation();
+  const updateAward = useUpdateCompensation();
+  const existingAward = awards[0] ?? null;
 
   return (
     <div className="p-6 space-y-4">
@@ -14,7 +18,18 @@ export default function Compensation() {
       </h1>
 
       {selectedId ? (
-        <CompensationForm award={awards?.[0] ?? null} onSave={() => {}} />
+        <CompensationForm
+          award={existingAward}
+          onSave={(payload) => {
+            const typed = { ...payload, payment_status: payload.payment_status as PaymentStatus };
+            if (existingAward) {
+              updateAward.mutate({ id: existingAward.id, ...typed });
+            } else {
+              createAward.mutate({ parcel_id: selectedId, ...typed });
+            }
+          }}
+          saving={createAward.isPending || updateAward.isPending}
+        />
       ) : null}
 
       <PaymentDashboard awards={awards ?? []} />

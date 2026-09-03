@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Search, Plus, Upload, MapPin } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useDebounce } from '../hooks/useDebounce';
 import { useParcels, useCreateParcel } from '../hooks/useParcels';
 import { useDocuments } from '../hooks/useDocuments';
@@ -76,7 +77,7 @@ export default function Parcels() {
       const idxOwner = headers.indexOf('owner_name');
       const idxArea = headers.indexOf('area_hectares');
       if (idxNum === -1 || idxOwner === -1) {
-        alert('CSV must have parcel_number, owner_name, area_hectares columns');
+        toast.error('CSV must have parcel_number, owner_name, area_hectares columns');
         return;
       }
       const toCreate = lines.slice(1).map((line) => {
@@ -85,7 +86,7 @@ export default function Parcels() {
           parcel_number: cols[idxNum],
           owner_name: cols[idxOwner],
           area_hectares: Number(cols[idxArea] ?? 1),
-          project_id: projectId ?? parcels[0]?.project_id ?? 'p1',
+          project_id: projectId ?? parcels[0]?.project_id,
           status: 'identified' as const,
           geometry: null,
         };
@@ -93,7 +94,7 @@ export default function Parcels() {
       toCreate.forEach((p) => {
         if (p.parcel_number && p.owner_name) createParcel.mutate(p as unknown as Parcel);
       });
-      alert(`Queued ${toCreate.length} parcels from CSV`);
+      toast.success(`Queued ${toCreate.length} parcels from CSV`);
     };
     reader.readAsText(file);
   };
@@ -260,7 +261,7 @@ export default function Parcels() {
           <Button
             onClick={() => {
               if (!addForm.parcel_number.trim() || !addForm.owner_name.trim()) {
-                alert('Parcel number and owner required');
+                toast.error('Parcel number and owner required');
                 return;
               }
               createParcel.mutate(
@@ -268,7 +269,7 @@ export default function Parcels() {
                   parcel_number: addForm.parcel_number.trim(),
                   owner_name: addForm.owner_name.trim(),
                   area_hectares: Number(addForm.area_hectares || 1),
-                  project_id: projectId ?? parcels[0]?.project_id ?? 'p1',
+                  project_id: projectId ?? parcels[0]?.project_id,
                   status: 'identified',
                   geometry: null,
                 } as unknown as Parcel,

@@ -13,7 +13,7 @@ export interface AuthState {
 export interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
-  register: (data: { full_name: string; email: string; password: string; role: UserRole }) => Promise<{ error?: string }>;
+  register: (data: { full_name: string; email: string; password: string; role: UserRole; cnic?: string }) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -101,28 +101,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
-  const register = async (data: { full_name: string; email: string; password: string; role: UserRole }) => {
+  const register = async (data: { full_name: string; email: string; password: string; role: UserRole; cnic?: string }) => {
     if (!isSupabaseConfigured()) return { error: 'Supabase not configured — fill .env and restart.' };
-    const { full_name, email, password, role } = data;
+    const { full_name, email, password, role, cnic } = data;
     const sanitizedEmail = email.trim().toLowerCase();
     const sanitizedName = full_name.trim();
     if (!sanitizedName || !sanitizedEmail || !password || !role) return { error: 'All fields required' };
+    const meta: Record<string, string> = { full_name: sanitizedName, role };
+    if (cnic) meta.cnic = cnic.trim();
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: sanitizedEmail,
       password,
-      options: { data: { full_name: sanitizedName, role } },
+      options: { data: meta },
     });
     if (authError) return { error: authError.message };
     if (!authData.user) return { error: 'Registration failed — no user returned' };
-    // Store role in user_profiles (trigger also auto-creates, but we upsert to ensure role)
     const { error: profileError } = await supabase.from('user_profiles').upsert({
       id: authData.user.id,
       full_name: sanitizedName,
       role,
+      cnic: cnic?.trim() || null,
     });
     if (profileError) {
       console.warn('[auth] profile upsert failed:', profileError.message);
-      // Auth succeeded even if profile upsert fails — user can still login, RLS trigger will handle
     }
     return {};
   };

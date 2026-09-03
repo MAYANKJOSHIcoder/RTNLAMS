@@ -1,4 +1,5 @@
 import { Search, ZoomIn, ZoomOut, Layers, MapPin } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface MapControlsProps {
   filter: string;
@@ -65,7 +66,7 @@ export default function MapControls({ filter, onFilter, search, onSearch, legend
           </div>
         </div>
         <button
-          onClick={() => alert('Satellite layer requires Sentinel Hub tiles — configure VITE_SENTINEL_HUB_* then enable in PROMPT 10 MapControls layer toggle.')}
+          onClick={() => toast('Satellite layer coming soon — configure VITE_SENTINEL_HUB_* env vars')}
           className="h-8 px-3 bg-white border border-slate-200 rounded-lg shadow-sm text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 pointer-events-auto cursor-pointer"
         >
           <Layers size={14} /> Satellite (soon)

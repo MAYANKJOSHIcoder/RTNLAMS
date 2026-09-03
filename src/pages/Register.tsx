@@ -22,10 +22,15 @@ const schema = z
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirm_password: z.string().min(1, 'Confirm your password'),
     role: z.enum(['admin', 'field_officer', 'auditor', 'citizen'] as const, { message: 'Select a role' }),
+    cnic: z.string().trim().optional(),
   })
   .refine((d) => d.password === d.confirm_password, {
     path: ['confirm_password'],
     message: 'Passwords do not match',
+  })
+  .refine((d) => d.role !== 'citizen' || (d.cnic && d.cnic.length >= 13), {
+    path: ['cnic'],
+    message: 'CNIC is required for citizens (13 digits, e.g. 35202-1234567-1)',
   });
 
 type FormData = z.infer<typeof schema>;
@@ -37,12 +42,14 @@ export default function Register() {
   const {
     register: rhfReg,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     mode: 'onBlur',
-    defaultValues: { full_name: '', email: '', password: '', confirm_password: '', role: 'citizen' },
+    defaultValues: { full_name: '', email: '', password: '', confirm_password: '', role: 'citizen', cnic: '' },
   });
+  const watchRole = watch('role');
 
   const onSubmit = async (data: FormData) => {
     const res = await doRegister({
@@ -50,6 +57,7 @@ export default function Register() {
       email: data.email,
       password: data.password,
       role: data.role as UserRole,
+      cnic: data.cnic || undefined,
     });
     if (res?.error) {
       toast.error(res.error);
@@ -117,6 +125,21 @@ export default function Register() {
             </select>
             {errors.role && <p role="alert" className="text-xs text-red-600 mt-1">{errors.role.message}</p>}
             <p className="text-xs text-slate-500 mt-1">Role stored in <code>user_profiles</code> table via Supabase.</p>
+          </div>
+
+          <div>
+            <label htmlFor="cnic" className="block text-sm font-medium text-slate-700 mb-1">
+              CNIC {watchRole === 'citizen' && <span className="text-red-600">*</span>}
+            </label>
+            <input
+              id="cnic"
+              placeholder="35202-1234567-1"
+              className={`w-full h-11 px-3 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1] ${errors.cnic ? 'border-red-500' : 'border-slate-300'}`}
+              aria-invalid={!!errors.cnic}
+              {...rhfReg('cnic')}
+            />
+            {errors.cnic && <p role="alert" className="text-xs text-red-600 mt-1">{errors.cnic.message}</p>}
+            {watchRole !== 'citizen' && <p className="text-xs text-slate-400 mt-1">Optional for non-citizen roles.</p>}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

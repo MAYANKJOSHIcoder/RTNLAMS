@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { FolderKanban, Map, AlertTriangle, ShieldCheck, Wallet } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useParcels } from '../hooks/useParcels';
 import { useSlaBreaches } from '../hooks/useStages';
 import { useRiskAssessments } from '../hooks/useRisk';
@@ -18,8 +19,26 @@ export default function Dashboard() {
   const { data: slaBreaches = [] } = useSlaBreaches();
   const { data: risks = [] } = useRiskAssessments();
   const { data: awards = [] } = useCompensation();
-  const [projectsCount, setProjectsCount] = useState(3);
+  const [projectsCount, setProjectsCount] = useState<number | null>(null);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+
+  // Real stage counts for pipeline
+  const { data: stageCounts = {} } = useQuery<Record<number, number>>({
+    queryKey: ['stage-counts'],
+    queryFn: async () => {
+      if (!isSupabaseConfigured()) return {};
+      const { data, error } = await supabase
+        .from('acquisition_stages')
+        .select('stage_number')
+        .in('status', ['in_progress', 'completed']);
+      if (error) return {};
+      const counts: Record<number, number> = {};
+      (data ?? []).forEach((row: { stage_number: number }) => {
+        counts[row.stage_number] = (counts[row.stage_number] ?? 0) + 1;
+      });
+      return counts;
+    },
+  });
 
   // Auto-refresh every 30s per PROMPT 19
   useEffect(() => {
@@ -35,11 +54,7 @@ export default function Dashboard() {
     const load = async () => {
       if (!isSupabaseConfigured()) {
         if (!cancelled) {
-          setActivities([
-            { id: '1', type: 'parcel', description: 'Parcel DL-SURV-001 marked surveyed', created_at: new Date(Date.now() - 1000 * 60 * 10).toISOString(), parcel_id: parcels[0]?.id },
-            { id: '2', type: 'document', description: 'Deed uploaded for DL-SURV-002', created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString() },
-            { id: '3', type: 'stage', description: 'Stage Valuation Report breached SLA', created_at: new Date(Date.now() - 1000 * 60 * 60).toISOString() },
-          ]);
+          setActivities([]);
         }
         return;
       }
@@ -71,24 +86,19 @@ export default function Dashboard() {
   }, [parcels, slaBreaches, risks, awards]);
 
   const pipelineCounts = useMemo(() => {
-    // Mock distribution for pipeline when real stages not loaded — spread parcels across 3 stages
-    const map: Record<number, number> = {};
-    parcels.forEach((_, i) => {
-      const stage = (i % 5) + 1; // 1-5
-      map[stage] = (map[stage] ?? 0) + 1;
-    });
-    // Include breached stages concentration
+    // Real counts from acquisition_stages, merged with SLA breach concentration
+    const map: Record<number, number> = { ...stageCounts };
     slaBreaches.forEach((s) => {
       map[s.stage_number] = (map[s.stage_number] ?? 0) + 0.5;
     });
     return map;
-  }, [parcels, slaBreaches]);
+  }, [stageCounts, slaBreaches]);
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto">
       {/* Top Row - KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        <KPICard title="Total Active Projects" value={projectsCount} subtitle="National pipeline" icon={FolderKanban} />
+        <KPICard title="Total Active Projects" value={projectsCount ?? 0} subtitle="National pipeline" icon={FolderKanban} />
         <KPICard title="Parcels In Progress" value={stats.inProgress} subtitle={`${parcels.length} total`} icon={Map} />
         <KPICard
           title="SLA Breaches"

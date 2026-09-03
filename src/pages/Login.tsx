@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 // Inline validation on blur per ui-ux-pro-max; labels for a11y per skill
 const schema = z.object({
   email: z.string().email('Enter a valid email').trim().min(1, 'Email is required'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 type FormData = z.infer<typeof schema>;
 

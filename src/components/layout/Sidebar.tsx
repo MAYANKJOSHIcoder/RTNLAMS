@@ -1,9 +1,11 @@
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, Map, FileText, Gavel, Wallet, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useProject } from '../../context/ProjectContext';
 import { useSlaBreaches } from '../../hooks/useStages';
 import { useAuth } from '../../context/AuthContext';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase/client';
 
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
@@ -14,12 +16,6 @@ const nav = [
   { to: '/audit', label: 'Audit', icon: ShieldCheck, roles: ['admin', 'auditor'] },
 ];
 
-const mockProjects = [
-  { id: 'p1', name: 'Delhi-Mumbai Highway (NH-48)' },
-  { id: 'p2', name: 'Mumbai-Ahmedabad Rail Corridor' },
-  { id: 'p3', name: 'Dholera Industrial Estate' },
-];
-
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { collapsed?: boolean; onToggle?: () => void; mobileOpen?: boolean; onClose?: () => void }) {
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const isCollapsed = collapsed ?? internalCollapsed;
@@ -28,6 +24,16 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
   const { data: slaBreaches = [] } = useSlaBreaches();
   const { profile } = useAuth();
   const userRole = profile?.role ?? 'citizen';
+
+  const { data: projects = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['projects-list'],
+    queryFn: async () => {
+      if (!isSupabaseConfigured()) return [];
+      const { data, error } = await supabase.from('projects').select('id, name').order('name');
+      if (error) return [];
+      return (data ?? []) as { id: string; name: string }[];
+    },
+  });
 
   const width = isCollapsed ? 'w-16' : 'w-64';
 
@@ -53,7 +59,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
             className="w-full h-8 px-2 border border-slate-300 rounded-md text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#0369A1] cursor-pointer"
           >
             <option value="">All Projects</option>
-            {mockProjects.map((p) => (
+            {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>

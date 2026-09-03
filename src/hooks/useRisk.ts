@@ -56,8 +56,9 @@ export function useRecalculateRisk() {
         .select()
         .single();
       if (error) throw new Error(error.message);
-      // Also update parcels.risk_score for map coloring
-      await supabase.from('parcels').update({ risk_score: computed.overall_risk }).eq('id', input.parcel.id);
+      // Also update parcels.risk_score for map coloring — check for errors
+      const { error: updateErr } = await supabase.from('parcels').update({ risk_score: computed.overall_risk }).eq('id', input.parcel.id);
+      if (updateErr) console.warn('[risk] failed to update parcel risk_score:', updateErr.message);
       return data as RiskAssessment;
     },
     onSuccess: (data) => {

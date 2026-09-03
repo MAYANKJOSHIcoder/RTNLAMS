@@ -59,6 +59,7 @@ export interface UserProfile {
   full_name: string;
   email?: string;
   role: UserRole;
+  cnic?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
   created_at: string; // ISO
@@ -211,33 +212,6 @@ export interface GeminiExtractionResponse {
   confidence: number | null; // overall 0-1
   confidence_per_field?: Record<string, number>;
   warnings?: string[];
-}
-
-export interface DashboardStats {
-  total_projects: number;
-  parcels_in_progress: number;
-  sla_breaches: number;
-  high_risk_parcels: number;
-  compensation_paid: number; // INR total
-  total_parcels: number;
-  total_area_hectares: number;
-  parcels_by_status: Record<ParcelStatus, number>;
-  parcels_by_stage: Record<number, number>; // stage_number -> count
-  recent_activity: Array<{
-    id: string;
-    type: string;
-    description: string;
-    created_at: string;
-    parcel_id?: string;
-  }>;
-}
-
-// Helpers for stage pipeline UI (PROMPT 14)
-export interface StagePipelineItem {
-  stage_number: number;
-  stage_name: string;
-  count: number;
-  breached: number;
 }
 
 // Supabase bbox query helper

@@ -47,7 +47,8 @@ export function useAdvanceStage() {
       const nextNum = (targetNumber ?? (currentStages.find((s) => s.id === stageId)?.stage_number ?? 0)) + 1;
       const next = currentStages.find((s) => s.stage_number === nextNum);
       if (next) {
-        await supabase.from('acquisition_stages').update({ status: 'in_progress' }).eq('id', next.id);
+        const { error: nextErr } = await supabase.from('acquisition_stages').update({ status: 'in_progress' }).eq('id', next.id);
+        if (nextErr) console.warn('[stages] failed to advance next stage:', nextErr.message);
       } else if (nextNum <= STAGES.length && isSupabaseConfigured()) {
         // If next not created (e.g., after initialization), create it — fallback: update parcel's current stage logic handles display
       }

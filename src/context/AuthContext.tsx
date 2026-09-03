@@ -107,7 +107,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const sanitizedEmail = email.trim().toLowerCase();
     const sanitizedName = full_name.trim();
     if (!sanitizedName || !sanitizedEmail || !password || !role) return { error: 'All fields required' };
-    const { data: authData, error: authError } = await supabase.auth.signUp({ email: sanitizedEmail, password });
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: sanitizedEmail,
+      password,
+      options: { data: { full_name: sanitizedName, role } },
+    });
     if (authError) return { error: authError.message };
     if (!authData.user) return { error: 'Registration failed — no user returned' };
     // Store role in user_profiles (trigger also auto-creates, but we upsert to ensure role)

@@ -1,5 +1,11 @@
--- Migration: Add missing citizen RLS policies
+-- Migration: Add missing citizen RLS policies + self-service profile upsert
 -- Fixes: citizens can't see hearings, documents, compensation, audit, risk data
+-- Fixes: registration upsert fails because only admin can write user_profiles
+
+-- Self-service: users can insert/update their own profile row
+DROP POLICY IF EXISTS user_self_profile ON public.user_profiles;
+CREATE POLICY user_self_profile ON public.user_profiles
+  FOR ALL USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 
 -- Citizen can read hearings for parcels they own
 DROP POLICY IF EXISTS citizen_hearings ON public.hearings;

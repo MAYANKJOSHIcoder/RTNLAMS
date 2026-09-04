@@ -3,7 +3,7 @@
  * Hybrid: Tesseract OCR (raw text) → IndicTrans (detect/translate) → Gemini (structured JSON)
  * Rate limit 15/min, retries 3, uses config.ts VITE_GEMINI_API_KEY via import.meta.env
  */
-import { config, isGeminiConfigured } from '../config';
+import { config, isGeminiConfigured, isIndicTransConfigured } from '../config';
 
 const RATE_LIMIT = 15;
 const WINDOW_MS = 60_000;
@@ -26,25 +26,50 @@ async function delay(ms: number) {
 
 // Simulated Tesseract step (in production use tesseract.js in browser)
 async function runTesseractMock(imageBase64: string): Promise<string> {
-  // Mock: return placeholder; real flow would be Tesseract.recognize(image).then(r => r.data.text)
-  // We keep base64 length hint to simulate varying OCR confidence
   if (!imageBase64) return '';
   return `TESSERACT_RAW_TEXT (simulated, ${Math.round(imageBase64.length / 1024)}KB image) — extracted for IndicTrans preprocessing`;
 }
 
-// Simulated IndicTrans step (language detection/translation)
-async function runIndicTransMock(rawText: string): Promise<{ detectedLanguage: string; translatedText: string }> {
-  // Heuristic: if rawText contains devanagari range hint, pretend Hindi
-  const hasDevanagari = /[\u0900-\u097F]/.test(rawText);
-  return {
-    detectedLanguage: hasDevanagari ? 'hi' : 'en',
-    translatedText: hasDevanagari ? `Translated(IndicTrans): ${rawText.slice(0, 200)}` : rawText,
-  };
+// Real IndicTrans2 server call (localhost:8080) with mock fallback
+async function runIndicTrans(rawText: string): Promise<{ detectedLanguage: string; translatedText: string }> {
+  if (!isIndicTransConfigured() || !rawText.trim()) {
+    // Mock fallback
+    const hasDevanagari = /[\u0900-\u097F]/.test(rawText);
+    return {
+      detectedLanguage: hasDevanagari ? 'hi' : 'en',
+      translatedText: hasDevanagari ? `Translated(IndicTrans): ${rawText.slice(0, 200)}` : rawText,
+    };
+  }
+
+  try {
+    const res = await fetch(`${config.indicTransApiUrl}/translate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sentences: [rawText],
+        src_lang: 'auto',  // server will handle detection via preprocessing
+        tgt_lang: 'en',    // translate to English for Gemini
+      }),
+    });
+    if (!res.ok) throw new Error(`IndicTrans ${res.status}`);
+    const data = await res.json();
+    return {
+      detectedLanguage: 'en', // server translates to English
+      translatedText: data.translations?.[0] ?? rawText,
+    };
+  } catch (e) {
+    console.warn('[gemini] IndicTrans server call failed, using mock:', (e as Error).message);
+    const hasDevanagari = /[\u0900-\u097F]/.test(rawText);
+    return {
+      detectedLanguage: hasDevanagari ? 'hi' : 'en',
+      translatedText: hasDevanagari ? `Translated(IndicTrans): ${rawText.slice(0, 200)}` : rawText,
+    };
+  }
 }
 
 interface GeminiOptions {
   prompt: string;
-  imageBase64?: string; // optional image payload (base64 without prefix)
+  imageBase64?: string;
   mimeType?: string;
   retries?: number;
 }
@@ -69,12 +94,12 @@ export async function callGemini({ prompt, imageBase64, mimeType = 'image/jpeg',
 
   checkRateLimit();
 
-  // Build hybrid context per PROMPT 13 spec: Tesseract + IndicTrans preprocessing
+  // Build hybrid context: Tesseract + IndicTrans preprocessing
   let tesseractText = '';
   let indic: { detectedLanguage: string; translatedText: string } = { detectedLanguage: 'en', translatedText: '' };
   if (imageBase64) {
     tesseractText = await runTesseractMock(imageBase64);
-    indic = await runIndicTransMock(tesseractText);
+    indic = await runIndicTrans(tesseractText);
   }
 
   const combinedPrompt = `${prompt}

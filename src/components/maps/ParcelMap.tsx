@@ -3,6 +3,7 @@ import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useParcelsGeoJson, statusColor } from '../../hooks/useParcels';
 import type { Parcel } from '../../lib/types';
+import { config, isPlanetConfigured } from '../../lib/config';
 import MapControls from './MapControls';
 
 interface ParcelMapProps {
@@ -21,12 +22,21 @@ const STATUS_LEGEND: Record<string, string> = {
   disputed: '#FCA5A5',
 };
 
+// Planet monthly mosaic — replace with desired mosaic name
+const PLANET_MOSAIC = 'global_monthly_2024_01_mosaic';
+
+function getPlanetTileUrl(): string {
+  const key = config.planetApiKey;
+  return `https://tiles0.planet.com/basemaps/v1/planet-tiles/${PLANET_MOSAIC}/gmap/{z}/{x}/{y}.png?api_key=${key}`;
+}
+
 export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId, height = '500px' }: ParcelMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [satelliteEnabled, setSatelliteEnabled] = useState(false);
 
   const { geoJson } = useParcelsGeoJson(null, projectId);
 
@@ -41,6 +51,36 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
       return true;
     }),
   };
+
+  // Add/remove Planet satellite layer when toggled
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!isPlanetConfigured()) {
+      setSatelliteEnabled(false);
+      return;
+    }
+    const sourceId = 'planet-satellite';
+    const layerId = 'planet-satellite-layer';
+    if (satelliteEnabled) {
+      if (!map.getSource(sourceId)) {
+        map.addSource(sourceId, {
+          type: 'raster',
+          tiles: [getPlanetTileUrl()],
+          tileSize: 256,
+          attribution: '© Planet Labs',
+        });
+        map.addLayer({
+          id: layerId,
+          type: 'raster',
+          source: sourceId,
+        }, 'osm'); // Insert below OSM so parcels stay on top
+      }
+    } else {
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+    }
+  }, [satelliteEnabled]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -173,7 +213,8 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
     }
   }, [selectedParcelId, filtered]);
 
-  // Export status color helper for controls
+  const handleToggleSatellite = () => setSatelliteEnabled((prev) => !prev);
+
   return (
     <div className="relative border border-slate-200 rounded-xl overflow-hidden bg-white" style={{ height }}>
       <div ref={containerRef} className="w-full h-full" aria-label="Parcel map" role="application" />
@@ -186,6 +227,8 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
         onZoomIn={() => mapRef.current?.zoomIn()}
         onZoomOut={() => mapRef.current?.zoomOut()}
         statusColor={statusColor}
+        satelliteEnabled={satelliteEnabled}
+        onToggleSatellite={handleToggleSatellite}
       />
       {!filtered.features.length && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/60 pointer-events-none">

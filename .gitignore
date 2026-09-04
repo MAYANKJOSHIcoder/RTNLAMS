@@ -53,6 +53,9 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
+# Python
+indictrans-server/.venv/
+
 # Local history
 .history
 

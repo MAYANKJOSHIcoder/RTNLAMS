@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
-import { Search, Plus, Upload, MapPin } from 'lucide-react';
+import { Search, Plus, Upload, MapPin, AlertTriangle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useDebounce } from '../hooks/useDebounce';
 import { useParcels, useCreateParcel } from '../hooks/useParcels';
 import { useDocuments } from '../hooks/useDocuments';
-import { useStages } from '../hooks/useStages';
+import { useStages, useAdvanceStage } from '../hooks/useStages';
 import { useHearings } from '../hooks/useHearings';
 import { useCompensation } from '../hooks/useCompensation';
 import { useAuditLogs } from '../hooks/useAudit';
@@ -18,7 +18,8 @@ import { Input } from '../components/ui/Input';
 import StageTimeline from '../components/parcels/StageTimeline';
 import DocumentList from '../components/documents/DocumentList';
 import { useProject } from '../context/ProjectContext';
-import type { Parcel } from '../lib/types';
+import type { Parcel, AcquisitionStage } from '../lib/types';
+import { canAdvance, STAGES } from '../lib/stages';
 
 const TABS = ['Overview', 'Documents', 'Timeline', 'Hearings', 'Compensation', 'Audit'] as const;
 
@@ -26,6 +27,8 @@ export default function Parcels() {
   const { projectId } = useProject();
   const { data: parcels = [], isLoading } = useParcels(null, projectId ?? undefined);
   const createParcel = useCreateParcel();
+  const advanceStage = useAdvanceStage();
+  const [advanceConfirm, setAdvanceConfirm] = useState<{ stage: AcquisitionStage; def: typeof STAGES[0] } | null>(null);
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
@@ -97,6 +100,34 @@ export default function Parcels() {
       toast.success(`Queued ${toCreate.length} parcels from CSV`);
     };
     reader.readAsText(file);
+  };
+
+  const handleStageClick = (stage: AcquisitionStage | undefined, def: typeof STAGES[0]) => {
+    if (!stage || !selected) return;
+    // Only allow advancing the current in_progress stage
+    if (stage.status !== 'in_progress') return;
+    setAdvanceConfirm({ stage, def });
+  };
+
+  const confirmAdvance = () => {
+    if (!advanceConfirm || !selected) return;
+    const { stage, def } = advanceConfirm;
+    // Validate can advance
+    const check = canAdvance(stages, def.stage_number);
+    if (!check.ok) {
+      toast.error(check.reason ?? 'Cannot advance');
+      setAdvanceConfirm(null);
+      return;
+    }
+    advanceStage.mutate(
+      { stageId: stage.id, parcelId: selected.id, currentStages: stages, targetNumber: def.stage_number },
+      {
+        onSuccess: () => {
+          toast.success(`Advanced to ${def.stage_name}`);
+        },
+      },
+    );
+    setAdvanceConfirm(null);
   };
 
   return (
@@ -231,7 +262,7 @@ export default function Parcels() {
               </div>
             )}
             {tab === 'Documents' && <DocumentList parcelId={selected.id} />}
-            {tab === 'Timeline' && <StageTimeline stages={stages} />}
+            {tab === 'Timeline' && <StageTimeline stages={stages} onStageClick={handleStageClick} />}
             {tab === 'Hearings' && (
               <div className="space-y-2">
                 {hearings.length === 0 ? <div className="text-sm text-slate-500">No hearings linked</div> : hearings.map((h) => <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-sm"><div className="font-medium">{h.type} — {new Date(h.hearing_date).toLocaleString()}</div><div className="text-slate-600">{h.outcome ?? h.notes ?? '-'}</div></div>)}
@@ -289,6 +320,33 @@ export default function Parcels() {
           <div className="text-xs text-slate-500">CSV bulk: columns parcel_number, owner_name, area_hectares</div>
         </div>
       </Modal>
+
+      {/* Advance stage confirmation modal */}
+      {advanceConfirm && (
+        <Modal open={true} onClose={() => setAdvanceConfirm(null)} title="Advance Stage">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <AlertTriangle size={24} className="text-amber-600 shrink-0" />
+              <div>
+                <p className="font-medium text-slate-900">Advance to <strong>{advanceConfirm.def.stage_name}</strong>?</p>
+                <p className="text-sm text-slate-600">Parcel: {selected?.parcel_number} — Current stage: {advanceConfirm.stage.stage_name}</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600">
+              This will mark the current stage as completed and move the next stage to in_progress.
+              {advanceStage.isPending && ' Processing…'}
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" onClick={() => setAdvanceConfirm(null)} disabled={advanceStage.isPending}>
+                Cancel
+              </Button>
+              <Button onClick={confirmAdvance} loading={advanceStage.isPending} leftIcon={advanceStage.isPending ? undefined : <AlertCircle size={14} />}>
+                Confirm Advance
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

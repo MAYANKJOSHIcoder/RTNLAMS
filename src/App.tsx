@@ -66,9 +66,13 @@ export default function App() {
                 <Route path="/dashboard" element={<Protected><AppLayout><Dashboard /></AppLayout></Protected>} />
                 <Route path="/parcels" element={<Protected><AppLayout><Parcels /></AppLayout></Protected>} />
                 <Route path="/documents" element={<Protected><AppLayout><Documents /></AppLayout></Protected>} />
+                <Route path="/documents/:id" element={<Protected><AppLayout><Documents /></AppLayout></Protected>} />
                 <Route path="/hearings" element={<Protected><AppLayout><Hearings /></AppLayout></Protected>} />
+                <Route path="/hearings/:id" element={<Protected><AppLayout><Hearings /></AppLayout></Protected>} />
                 <Route path="/compensation" element={<Protected><AppLayout><Compensation /></AppLayout></Protected>} />
+                <Route path="/compensation/:id" element={<Protected><AppLayout><Compensation /></AppLayout></Protected>} />
                 <Route path="/audit" element={<Protected><AppLayout><Audit /></AppLayout></Protected>} />
+                <Route path="/audit/:id" element={<Protected><AppLayout><Audit /></AppLayout></Protected>} />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

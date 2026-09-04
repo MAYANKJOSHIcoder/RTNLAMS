@@ -1,11 +1,17 @@
+import { useState } from 'react';
 import { useParams } from "react-router-dom";
 import { useDocuments } from "../hooks/useDocuments";
 import DocumentUpload from "../components/documents/DocumentUpload";
 import DocumentList from "../components/documents/DocumentList";
+import DocumentDetail from "../components/documents/DocumentDetail";
+import type { Document as DocType } from "../lib/types";
 
 export default function Documents() {
   const { id: selectedId } = useParams();
-  const { data: docs = [], isLoading } = useDocuments(selectedId);
+  const { data: docs = [], isLoading, refetch } = useDocuments(selectedId);
+  const [viewDoc, setViewDoc] = useState<DocType | null>(null);
+
+  const handleView = (doc: DocType) => setViewDoc(doc);
 
   return (
     <div className="p-6 space-y-4">
@@ -14,10 +20,14 @@ export default function Documents() {
       </h1>
 
       {selectedId ? (
-        <DocumentUpload parcelId={selectedId} />
+        <DocumentUpload parcelId={selectedId} onSuccess={refetch} />
       ) : null}
 
-      <DocumentList parcelId={selectedId} />
+      <DocumentList parcelId={selectedId} onView={handleView} />
+
+      {viewDoc && (
+        <DocumentDetail document={viewDoc} onClose={() => setViewDoc(null)} />
+      )}
 
       {!selectedId && (
         <div className="bg-white border border-slate-200 rounded-xl p-4">

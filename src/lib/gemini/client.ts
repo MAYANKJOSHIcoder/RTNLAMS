@@ -3,7 +3,7 @@
  * Hybrid: Tesseract OCR (raw text) → IndicTrans (detect/translate) → Gemini (structured JSON)
  * Rate limit 15/min, retries 3, uses config.ts VITE_GEMINI_API_KEY via import.meta.env
  */
-import { config, isConfigValid } from '../config';
+import { config, isGeminiConfigured } from '../config';
 
 const RATE_LIMIT = 15;
 const WINDOW_MS = 60_000;
@@ -50,7 +50,7 @@ interface GeminiOptions {
 }
 
 export async function callGemini({ prompt, imageBase64, mimeType = 'image/jpeg', retries = MAX_RETRIES }: GeminiOptions): Promise<string> {
-  if (!isConfigValid() || !config.geminiApiKey) {
+  if (!isGeminiConfigured() || !config.geminiApiKey) {
     console.warn('[gemini] VITE_GEMINI_API_KEY not configured — returning mock extraction');
     await delay(400);
     return JSON.stringify(

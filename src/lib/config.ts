@@ -1,81 +1,81 @@
 /**
  * Typed runtime config — reads from import.meta.env (Vite).
- * Throws descriptive errors if any required key is missing/placeholder.
+ * Each service validated independently so one missing key
+ * doesn't break unrelated features.
  * SECURITY: Never hardcode keys — always via VITE_* env.
- * Ref: PROMPTS_indictrans.md PROMPT 2
  */
 
 export interface AppConfig {
   supabaseUrl: string;
   supabaseAnonKey: string;
   geminiApiKey: string;
-  sentinelHubClientId: string;
-  sentinelHubClientSecret: string;
+  planetApiKey: string;
+  indicTransApiUrl: string;
 }
 
-function requireEnv(key: string, value: string | undefined, placeholder = `your_${key.toLowerCase()}`): string {
-  const trimmed = value?.trim() ?? '';
-  if (!trimmed || trimmed === placeholder || trimmed.includes('your_supabase') || trimmed.includes('your_gemini') || trimmed.includes('your_sentinel')) {
-    throw new Error(
-      `Missing or placeholder env: ${key}. ` +
-        `Set ${key} in your .env (see .env.example). ` +
-        `All keys must use import.meta.env.VITE_* — never hardcode.`
-    );
-  }
-  return trimmed;
+const env = (): Record<string, string | undefined> =>
+  (import.meta as unknown as { env: Record<string, string | undefined> }).env ?? {};
+
+function getVal(key: string): string {
+  return env()[key]?.trim() ?? '';
 }
 
-function getConfig(): AppConfig {
-  // Vite exposes import.meta.env at build time; fallback for non-Vite contexts
-  const env = (import.meta as unknown as { env: Record<string, string | undefined> }).env ?? {};
+function isPlaceholder(key: string, val: string): boolean {
+  if (!val) return true;
+  const lower = val.toLowerCase();
+  return (
+    lower.startsWith('your_') ||
+    lower === 'nah' ||
+    lower === 'nanana' ||
+    lower === 'todo' ||
+    lower === 'placeholder' ||
+    lower.includes(`your_${key.replace('VITE_', '').toLowerCase()}`)
+  );
+}
 
-  return {
-    supabaseUrl: requireEnv('VITE_SUPABASE_URL', env.VITE_SUPABASE_URL),
-    supabaseAnonKey: requireEnv('VITE_SUPABASE_ANON_KEY', env.VITE_SUPABASE_ANON_KEY),
-    geminiApiKey: requireEnv('VITE_GEMINI_API_KEY', env.VITE_GEMINI_API_KEY),
-    sentinelHubClientId: requireEnv('VITE_SENTINEL_HUB_CLIENT_ID', env.VITE_SENTINEL_HUB_CLIENT_ID),
-    sentinelHubClientSecret: requireEnv('VITE_SENTINEL_HUB_CLIENT_SECRET', env.VITE_SENTINEL_HUB_CLIENT_SECRET),
-  };
+/** Supabase — required for core app */
+export function isSupabaseConfigured(): boolean {
+  const url = getVal('VITE_SUPABASE_URL');
+  const key = getVal('VITE_SUPABASE_ANON_KEY');
+  return !!url && !!key && !isPlaceholder('VITE_SUPABASE_URL', url) && !isPlaceholder('VITE_SUPABASE_ANON_KEY', key);
+}
+
+/** Gemini — optional, enables AI document extraction */
+export function isGeminiConfigured(): boolean {
+  const key = getVal('VITE_GEMINI_API_KEY');
+  return !!key && !isPlaceholder('VITE_GEMINI_API_KEY', key);
+}
+
+/** Planet — optional, enables satellite basemap tiles */
+export function isPlanetConfigured(): boolean {
+  const key = getVal('VITE_PLANET_API_KEY');
+  return !!key && !isPlaceholder('VITE_PLANET_API_KEY', key);
+}
+
+/** IndicTrans2 — optional, enables real translation (localhost:8080) */
+export function isIndicTransConfigured(): boolean {
+  const url = getVal('VITE_INDICTRAN_API_URL');
+  return !!url && url.startsWith('http');
+}
+
+/** All core services configured (Supabase only) */
+export function isConfigValid(): boolean {
+  return isSupabaseConfigured();
 }
 
 /**
- * Eager validation — throws on import if env missing.
- * For lazy validation (e.g., to allow .env empty in dev), catch at call site
- * or use tryGetConfig().
+ * Eager config — returns values (may be empty strings in dev).
+ * Use isXxxConfigured() to check availability before calling services.
  */
 export const config: AppConfig = (() => {
-  try {
-    return getConfig();
-  } catch (err) {
-    // In dev with empty .env, surface warning instead of crashing before user fills it
-    if (import.meta.env?.DEV) {
-      console.warn('[config] Env not fully configured:', (err as Error).message);
-      // Return placeholder that will fail on actual use but allows dev server to start
-      return {
-        supabaseUrl: (import.meta.env.VITE_SUPABASE_URL as string) ?? '',
-        supabaseAnonKey: (import.meta.env.VITE_SUPABASE_ANON_KEY as string) ?? '',
-        geminiApiKey: (import.meta.env.VITE_GEMINI_API_KEY as string) ?? '',
-        sentinelHubClientId: (import.meta.env.VITE_SENTINEL_HUB_CLIENT_ID as string) ?? '',
-        sentinelHubClientSecret: (import.meta.env.VITE_SENTINEL_HUB_CLIENT_SECRET as string) ?? '',
-      };
-    }
-    throw err;
-  }
+  const e = env();
+  return {
+    supabaseUrl: e.VITE_SUPABASE_URL ?? '',
+    supabaseAnonKey: e.VITE_SUPABASE_ANON_KEY ?? '',
+    geminiApiKey: e.VITE_GEMINI_API_KEY ?? '',
+    planetApiKey: e.VITE_PLANET_API_KEY ?? '',
+    indicTransApiUrl: e.VITE_INDICTRAN_API_URL ?? '',
+  };
 })();
-
-/** Strict accessor — always throws if misconfigured */
-export function getValidatedConfig(): AppConfig {
-  return getConfig();
-}
-
-/** Safe check without throwing — useful for health checks */
-export function isConfigValid(): boolean {
-  try {
-    getConfig();
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export default config;

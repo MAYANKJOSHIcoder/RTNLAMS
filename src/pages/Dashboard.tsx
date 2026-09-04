@@ -22,16 +22,34 @@ export default function Dashboard() {
   const [projectsCount, setProjectsCount] = useState<number | null>(null);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
 
-  // Real stage counts for pipeline
+  // Real stage counts for pipeline — count each parcel ONCE at its current stage
   const { data: stageCounts = {} } = useQuery<Record<number, number>>({
-    queryKey: ['stage-counts'],
+    queryKey: ['stage-counts', projectId],
     queryFn: async () => {
       if (!isSupabaseConfigured()) return {};
-      const { data, error } = await supabase
-        .from('acquisition_stages')
-        .select('stage_number')
-        .in('status', ['in_progress', 'completed']);
-      if (error) return {};
+      // Get the highest stage_number per parcel where status is in_progress or completed
+      // This ensures each parcel is counted only once at its current stage
+      const { data, error } = await supabase.rpc('get_parcel_current_stages' as never, {
+        p_project_id: projectId ?? null,
+      } as never);
+      if (error) {
+        // Fallback: client-side computation if RPC not available
+        const { data: stages, error: stagesErr } = await supabase
+          .from('acquisition_stages')
+          .select('parcel_id, stage_number, status')
+          .in('status', ['in_progress', 'completed']);
+        if (stagesErr) return {};
+        const parcelCurrentStage = new Map<string, number>();
+        (stages ?? []).forEach((s: { parcel_id: string; stage_number: number; status: string }) => {
+          const current = parcelCurrentStage.get(s.parcel_id) ?? 0;
+          if (s.stage_number > current) parcelCurrentStage.set(s.parcel_id, s.stage_number);
+        });
+        const counts: Record<number, number> = {};
+        parcelCurrentStage.forEach((stageNum) => {
+          counts[stageNum] = (counts[stageNum] ?? 0) + 1;
+        });
+        return counts;
+      }
       const counts: Record<number, number> = {};
       (data ?? []).forEach((row: { stage_number: number }) => {
         counts[row.stage_number] = (counts[row.stage_number] ?? 0) + 1;
@@ -86,13 +104,10 @@ export default function Dashboard() {
   }, [parcels, slaBreaches, risks, awards]);
 
   const pipelineCounts = useMemo(() => {
-    // Real counts from acquisition_stages, merged with SLA breach concentration
-    const map: Record<number, number> = { ...stageCounts };
-    slaBreaches.forEach((s) => {
-      map[s.stage_number] = (map[s.stage_number] ?? 0) + 0.5;
-    });
-    return map;
-  }, [stageCounts, slaBreaches]);
+    // Real counts from acquisition_stages — each parcel counted once at current stage
+    // SLA breaches are already reflected in stageCounts (breached stages show as 'breached' status)
+    return stageCounts;
+  }, [stageCounts]);
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto">

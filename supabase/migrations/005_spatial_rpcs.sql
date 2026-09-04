@@ -80,6 +80,34 @@ AS $$
 $$;
 
 -- ---------------------------------------------------------------------------
+-- 4. get_parcel_current_stages(p_project_id)
+-- Returns the current stage (highest stage_number with in_progress or completed status)
+-- for each parcel, optionally filtered by project_id.
+-- Used by Dashboard to count parcels once per current stage.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.get_parcel_current_stages(
+  p_project_id varchar(255) DEFAULT NULL
+)
+RETURNS TABLE (stage_number integer)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT s.stage_number
+  FROM public.acquisition_stages s
+  JOIN public.parcels p ON p.id = s.parcel_id
+  WHERE s.status IN ('in_progress', 'completed')
+    AND (p_project_id IS NULL OR p.project_id = p_project_id)
+    AND s.stage_number = (
+      SELECT MAX(s2.stage_number)
+      FROM public.acquisition_stages s2
+      WHERE s2.parcel_id = s.parcel_id
+        AND s2.status IN ('in_progress', 'completed')
+    );
+$$;
+
+-- ---------------------------------------------------------------------------
 -- Indexes to support the above queries (if not already created)
 -- ---------------------------------------------------------------------------
 -- GiST index on parcels.geometry already created in 001_initial_schema.sql
@@ -89,3 +117,4 @@ $$;
 GRANT EXECUTE ON FUNCTION public.parcels_within_bbox(double precision, double precision, double precision, double precision) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.parcels_nearby(double precision, double precision, double precision) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.parcels_intersecting_corridor(jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_parcel_current_stages(varchar(255)) TO authenticated;

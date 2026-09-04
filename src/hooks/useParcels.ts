@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
 import type { Parcel, FeatureCollection, MapFeature, GeoJsonGeometry } from '../lib/types';
+import { initializeStagesForParcel } from '../lib/stages';
 import { toast } from 'react-hot-toast';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -137,8 +138,15 @@ export function useCreateParcel() {
       if (error) throw new Error(error.message);
       return data as Parcel;
     },
-    onSuccess: () => {
+    onSuccess: async (newParcel) => {
+      // Auto-create 12 acquisition stages for the new parcel
+      if (isSupabaseConfigured()) {
+        const stages = initializeStagesForParcel(newParcel.id);
+        const { error: stagesErr } = await supabase.from('acquisition_stages').insert(stages);
+        if (stagesErr) console.warn('[parcels] failed to create stages:', stagesErr.message);
+      }
       qc.invalidateQueries({ queryKey: ['parcels'] });
+      qc.invalidateQueries({ queryKey: ['stage-counts'] });
       toast.success('Parcel created');
     },
     onError: (e: Error) => toast.error(e.message),

@@ -47,12 +47,6 @@ CREATE TRIGGER trg_set_created_by
   BEFORE INSERT ON public.parcels
   FOR EACH ROW EXECUTE FUNCTION public.set_created_by();
 
--- Documents (uses uploaded_by, but also set created_by if present)
-DROP TRIGGER IF EXISTS trg_set_created_by ON public.documents;
-CREATE TRIGGER trg_set_created_by
-  BEFORE INSERT ON public.documents
-  FOR EACH ROW EXECUTE FUNCTION public.set_created_by();
-
 -- Hearings
 DROP TRIGGER IF EXISTS trg_set_created_by ON public.hearings;
 CREATE TRIGGER trg_set_created_by
@@ -69,12 +63,6 @@ CREATE TRIGGER trg_set_created_by
 DROP TRIGGER IF EXISTS trg_set_created_by ON public.audit_logs;
 CREATE TRIGGER trg_set_created_by
   BEFORE INSERT ON public.audit_logs
-  FOR EACH ROW EXECUTE FUNCTION public.set_created_by();
-
--- Risk assessments (uses assessed_by, set created_by too if present)
-DROP TRIGGER IF EXISTS trg_set_created_by ON public.risk_assessments;
-CREATE TRIGGER trg_set_created_by
-  BEFORE INSERT ON public.risk_assessments
   FOR EACH ROW EXECUTE FUNCTION public.set_created_by();
 
 -- =========================================================================

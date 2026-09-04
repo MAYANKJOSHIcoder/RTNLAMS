@@ -2,9 +2,6 @@
 -- Create Supabase Storage buckets for document uploads
 -- Run in Supabase SQL Editor AFTER 001_initial_schema.sql
 
--- Enable storage extension if not already enabled
-CREATE EXTENSION IF NOT EXISTS "storage";
-
 -- Helper: create bucket if not exists
 DO $$
 BEGIN

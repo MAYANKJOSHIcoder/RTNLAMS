@@ -55,6 +55,7 @@ Desktop.ini
 
 # Python
 indictrans-server/.venv/
+indictrans-server/__pycache__/
 
 # Local history
 .history

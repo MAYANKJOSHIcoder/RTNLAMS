@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { FolderKanban, Map, AlertTriangle, ShieldCheck, Wallet } from 'lucide-react';
+import { FolderKanban, MapIcon, AlertTriangle, ShieldCheck, Wallet } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useParcels } from '../hooks/useParcels';
 import { useSlaBreaches } from '../hooks/useStages';
@@ -114,7 +114,7 @@ export default function Dashboard() {
       {/* Top Row - KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <KPICard title="Total Active Projects" value={projectsCount ?? 0} subtitle="National pipeline" icon={FolderKanban} />
-        <KPICard title="Parcels In Progress" value={stats.inProgress} subtitle={`${parcels.length} total`} icon={Map} />
+        <KPICard title="Parcels In Progress" value={stats.inProgress} subtitle={`${parcels.length} total`} icon={MapIcon} />
         <KPICard
           title="SLA Breaches"
           value={stats.breaches}

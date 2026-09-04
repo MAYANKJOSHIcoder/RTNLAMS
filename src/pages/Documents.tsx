@@ -20,7 +20,7 @@ export default function Documents() {
       </h1>
 
       {selectedId ? (
-        <DocumentUpload parcelId={selectedId} onSuccess={refetch} />
+        <DocumentUpload parcelId={selectedId} onUploaded={() => refetch()} />
       ) : null}
 
       <DocumentList parcelId={selectedId} onView={handleView} />

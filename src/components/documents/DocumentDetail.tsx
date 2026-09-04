@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { X, FileText, Globe, CheckCircle, AlertTriangle, Clock, Download } from 'lucide-react';
+import { FileText, Globe, CheckCircle, Clock, Download } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Badge, statusToBadgeVariant } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
 import type { Document as DocType } from '../../lib/types';
-import { supabase } from '../../lib/supabase/client';
 
 interface DocumentDetailProps {
   document: DocType | null;
@@ -30,13 +29,13 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
       const res = await fetch(document.file_url);
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = window.document.createElement('a');
       a.href = url;
       a.download = document.file_name || `document-${document.id}.pdf`;
-      document.body.appendChild(a);
+      window.document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      window.document.body.removeChild(a);
     } catch {
       alert('Failed to download document');
     } finally {
@@ -47,7 +46,7 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
   if (!document) return null;
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Document Details" size="lg">
+    <Modal open={true} onClose={onClose} title="Document Details">
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">

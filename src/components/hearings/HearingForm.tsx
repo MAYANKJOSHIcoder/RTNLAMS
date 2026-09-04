@@ -3,7 +3,9 @@ import { Plus, Trash2, Upload } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useCreateHearing } from '../../hooks/useHearings';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase/client';
 import type { Hearing } from '../../lib/types';
+import toast from 'react-hot-toast';
 
 interface HearingFormProps {
   parcelId: string;
@@ -17,17 +19,40 @@ export default function HearingForm({ parcelId, onSuccess }: HearingFormProps) {
   const [outcome, setOutcome] = useState('');
   const [notes, setNotes] = useState('');
   const [minutesFile, setMinutesFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const create = useCreateHearing();
 
   const handleAttendeeChange = (i: number, field: 'name' | 'role', val: string) => {
     setAttendees((prev) => prev.map((a, idx) => (idx === i ? { ...a, [field]: val } : a)));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const sanitizedAttendees = attendees.filter((a) => String(a.name).trim()).map((a) => ({ name: String(a.name).trim(), role: String(a.role).trim() }));
-    // File upload for minutes: for MVP store filename placeholder; real upload would be Supabase Storage
-    const minutes_file_url = minutesFile ? `minutes/${Date.now()}-${minutesFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}` : null;
+
+    let minutes_file_url: string | null = null;
+    if (minutesFile) {
+      if (!isSupabaseConfigured()) {
+        toast.error('Supabase not configured — fill .env');
+        return;
+      }
+      setUploading(true);
+      const sanitizedName = minutesFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `minutes/${Date.now()}-${sanitizedName}`;
+      const { error: upErr } = await supabase.storage.from('hearing-minutes').upload(path, minutesFile, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+      if (upErr) {
+        toast.error(`Upload failed: ${upErr.message}`);
+        setUploading(false);
+        return;
+      }
+      const { data: { publicUrl } } = supabase.storage.from('hearing-minutes').getPublicUrl(path);
+      minutes_file_url = publicUrl;
+      setUploading(false);
+    }
+
     create.mutate(
       {
         parcel_id: parcelId,
@@ -157,7 +182,7 @@ export default function HearingForm({ parcelId, onSuccess }: HearingFormProps) {
         </label>
       </div>
 
-      <Button type="submit" loading={create.isPending} className="w-full">
+      <Button type="submit" loading={create.isPending || uploading} className="w-full">
         Schedule Hearing
       </Button>
       {create.isError && <p className="text-xs text-red-600">{(create.error as Error).message}</p>}

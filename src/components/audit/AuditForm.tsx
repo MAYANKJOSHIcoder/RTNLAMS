@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Upload } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useCreateAudit } from '../../hooks/useAudit';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase/client';
 import type { AuditLog } from '../../lib/types';
+import toast from 'react-hot-toast';
 
 interface AuditFormProps {
   parcelId?: string | null;
@@ -15,12 +17,35 @@ export default function AuditForm({ parcelId, onSuccess }: AuditFormProps) {
   const [severity, setSeverity] = useState<AuditLog['severity']>('medium');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [resolved, setResolved] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const create = useCreateAudit();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Image upload placeholder: for MVP store filename; real would be Supabase Storage audit bucket
-    const image_url = imageFile ? `audit/${Date.now()}-${imageFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}` : null;
+
+    let image_url: string | null = null;
+    if (imageFile) {
+      if (!isSupabaseConfigured()) {
+        toast.error('Supabase not configured — fill .env');
+        return;
+      }
+      setUploading(true);
+      const sanitizedName = imageFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `audit/${Date.now()}-${sanitizedName}`;
+      const { error: upErr } = await supabase.storage.from('audit-evidence').upload(path, imageFile, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+      if (upErr) {
+        toast.error(`Upload failed: ${upErr.message}`);
+        setUploading(false);
+        return;
+      }
+      const { data: { publicUrl } } = supabase.storage.from('audit-evidence').getPublicUrl(path);
+      image_url = publicUrl;
+      setUploading(false);
+    }
+
     create.mutate(
       {
         parcel_id: parcelId ?? null,
@@ -111,7 +136,7 @@ export default function AuditForm({ parcelId, onSuccess }: AuditFormProps) {
         Resolved
       </label>
 
-      <Button type="submit" loading={create.isPending} className="w-full">
+      <Button type="submit" loading={create.isPending || uploading} className="w-full">
         Log Audit
       </Button>
       {create.isError && <p className="text-xs text-red-600">{(create.error as Error).message}</p>}

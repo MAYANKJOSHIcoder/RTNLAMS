@@ -53,8 +53,6 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# Python (local only — not deployed)
-indictrans-server/
 
 # Local history
 .history
@@ -62,3 +60,9 @@ indictrans-server/
 # Project — local only (per user: PROGRESS.md not committed, tooling)
 PROGRESS.md
 skills/
+
+# Python (indictrans-server)
+.venv/
+venv/
+__pycache__/
+*.py[cod]

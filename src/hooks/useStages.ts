@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
 import type { AcquisitionStage } from '../lib/types';
 import { canAdvance, STAGES } from '../lib/stages';
 import toast from 'react-hot-toast';
+import { useRecalcRiskForParcel } from './useRisk';
 
 export function useStages(parcelId?: string) {
   return useQuery({
@@ -33,6 +34,7 @@ export function useStages(parcelId?: string) {
 
 export function useAdvanceStage() {
   const qc = useQueryClient();
+  const recalcRisk = useRecalcRiskForParcel();
   return useMutation({
     mutationFn: async ({ stageId, parcelId, currentStages, targetNumber }: { stageId: string; parcelId: string; currentStages: AcquisitionStage[]; targetNumber?: number }) => {
       if (!isSupabaseConfigured()) throw new Error('Supabase not configured — fill .env');
@@ -57,9 +59,10 @@ export function useAdvanceStage() {
       return data as AcquisitionStage;
     },
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['stages', vars.parcelId] });
+      qc.invalidateQueries({ queryKey: ['stages'] });
       qc.invalidateQueries({ queryKey: ['parcels'] });
       toast.success('Stage advanced');
+      recalcRisk.mutate(vars.parcelId);
     },
     onError: (e: Error) => toast.error(e.message),
   });

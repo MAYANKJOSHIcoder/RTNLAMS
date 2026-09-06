@@ -1,26 +1,63 @@
 import { useEffect, useState } from 'react';
-import { FileText, Globe, CheckCircle, Clock, Download } from 'lucide-react';
+import { FileText, Globe, CheckCircle, Clock, Download, RefreshCw, ThumbsUp, ThumbsDown, Save } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Button } from '../ui/Button';
 import { Badge, statusToBadgeVariant } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
+import { useUpdateDocument } from '../../hooks/useDocuments';
+import { useRecalcRiskForParcel } from '../../hooks/useRisk';
+import { useGeminiExtraction } from '../../hooks/useGemini';
 import type { Document as DocType } from '../../lib/types';
+import type { PromptType } from '../../lib/gemini/prompts';
 
 interface DocumentDetailProps {
   document: DocType | null;
   onClose: () => void;
 }
 
+const REEXTRACT_TYPES: { value: PromptType; label: string }[] = [
+  { value: 'deed', label: 'Deed' },
+  { value: 'survey_map', label: 'Survey Map' },
+  { value: 'handwritten_deed', label: 'Handwritten Deed' },
+];
+
+function confidenceBadge(conf?: number | null) {
+  if (conf == null) return null;
+  const cls =
+    conf > 0.8
+      ? 'bg-green-50 border-green-200 text-green-700'
+      : conf >= 0.5
+        ? 'bg-yellow-50 border-yellow-200 text-yellow-700'
+        : 'bg-red-50 border-red-200 text-red-700';
+  return (
+    <span className={`px-1.5 py-0.5 rounded text-[10px] border shrink-0 ${cls}`} title={`Field confidence: ${Math.round(conf * 100)}%`}>
+      {Math.round(conf * 100)}%
+    </span>
+  );
+}
+
 export default function DocumentDetail({ document, onClose }: DocumentDetailProps) {
   const [extracted, setExtracted] = useState<Record<string, unknown> | null>(null);
+  const [fields, setFields] = useState<Record<string, string>>({});
+  const [perFieldConf, setPerFieldConf] = useState<Record<string, number>>({});
+  const [reextractType, setReextractType] = useState<PromptType>('deed');
   const [loading, setLoading] = useState(false);
+  const update = useUpdateDocument();
+  const recalcRisk = useRecalcRiskForParcel();
+  const extract = useGeminiExtraction();
 
   useEffect(() => {
     if (!document?.ocr_extracted_data) {
       setExtracted(null);
+      setFields({});
+      setPerFieldConf({});
       return;
     }
-    setExtracted(document.ocr_extracted_data as Record<string, unknown>);
-  }, [document]);
+    const data = document.ocr_extracted_data as Record<string, unknown>;
+    setExtracted(data);
+    setFields(Object.fromEntries(Object.entries((data.extracted_fields as Record<string, unknown>) ?? {}).map(([k, v]) => [k, String(v ?? '')])));
+    setPerFieldConf((data.confidence_per_field as Record<string, number>) ?? {});
+  }, [document?.id, document?.status, document?.ocr_extracted_data]);
 
   const handleDownload = async () => {
     if (!document?.file_url) return;
@@ -43,10 +80,43 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
     }
   };
 
+  const setStatus = (status: 'verified' | 'flagged') => {
+    if (!document) return;
+    const pid = document.parcel_id;
+    update.mutate(
+      { id: document.id, status },
+      { onSuccess: () => recalcRisk.mutate(pid) },
+    );
+  };
+
+  const saveEdits = () => {
+    if (!document) return;
+    const data = (document.ocr_extracted_data ?? {}) as Record<string, unknown>;
+    update.mutate({
+      id: document.id,
+      ocr_extracted_data: { ...data, extracted_fields: fields } as Record<string, unknown>,
+      status: 'extracted',
+    });
+  };
+
+  const handleReextract = async () => {
+    if (!document?.file_url) return;
+    try {
+      const res = await fetch(document.file_url);
+      const blob = await res.blob();
+      const file = new File([blob], document.file_name ?? 'document.pdf', { type: blob.type || 'application/pdf' });
+      extract.mutate({ file, promptType: reextractType, documentId: document.id });
+    } catch {
+      toast.error('Failed to fetch document file for re-extraction');
+    }
+  };
+
   if (!document) return null;
 
+  const overallConf = document.ocr_confidence;
+
   return (
-    <Modal open={true} onClose={onClose} title="Document Details">
+    <Modal open={true} onClose={onClose} title="OCR Review">
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
@@ -55,7 +125,6 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
               <FileText size={14} />
               <span>{document.file_name ?? document.doc_type}</span>
             </div>
-            <h3 className="text-lg font-semibold text-slate-900">{document.doc_type.replace('_', ' ')}</h3>
             <div className="flex items-center gap-3 mt-2 text-sm text-slate-600">
               <span>Parcel: <code className="bg-slate-100 px-1.5 rounded">{document.parcel_id}</code></span>
               <span>Language: {document.language ?? '-'}</span>
@@ -67,36 +136,56 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
           </Badge>
         </div>
 
-        {/* OCR Extracted Data */}
-        {extracted && (
-          <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
-            <h4 className="font-medium text-slate-900 mb-3 flex items-center gap-2">
-              <CheckCircle size={16} className="text-green-600" /> Extracted Fields
-            </h4>
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              {Object.entries(extracted).map(([key, value]) => (
-                <div key={key}>
-                  <dt className="text-slate-500">{key.replace(/_/g, ' ')}</dt>
-                  <dd className="font-mono text-slate-900 break-all">{String(value)}</dd>
-                </div>
-              ))}
-            </dl>
-            {document.ocr_confidence && (
-              <div className="mt-3 pt-3 border-t border-slate-200">
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <span>OCR Confidence:</span>
-                  <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-green-600"
-                      style={{ width: `${Math.round((document.ocr_confidence ?? 0) * 100)}%` }}
+        {/* Split view: preview left, extracted editor right */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left: file preview */}
+          <div>
+            <h4 className="font-medium text-slate-900 mb-2 text-sm">Preview</h4>
+            {document.file_url ? (
+              <iframe src={document.file_url} title="Document preview" className="w-full h-[420px] rounded-lg border border-slate-200 bg-white" />
+            ) : (
+              <div className="h-[420px] flex items-center justify-center text-sm text-slate-400 border border-slate-200 rounded-lg">No file available</div>
+            )}
+          </div>
+
+          {/* Right: extracted fields editor with per-field confidence */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-medium text-slate-900 text-sm flex items-center gap-1">
+                <CheckCircle size={14} className="text-green-600" /> Extracted Fields
+              </h4>
+              {overallConf != null && confidenceBadge(overallConf)}
+            </div>
+            {extracted?.extracted_fields && Object.keys(fields).length > 0 ? (
+              <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
+                {Object.entries(fields).map(([key, value]) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <label htmlFor={`f-${key}`} className="w-32 shrink-0 text-xs text-slate-500 truncate" title={key}>
+                      {key.replace(/_/g, ' ')}
+                    </label>
+                    <input
+                      id={`f-${key}`}
+                      value={value}
+                      onChange={(e) => setFields((p) => ({ ...p, [key]: e.target.value }))}
+                      className="flex-1 min-w-0 h-8 px-2 border border-slate-300 rounded text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#0369A1]"
                     />
+                    {confidenceBadge(perFieldConf[key] ?? perFieldConf[key.replace(/_/g, ' ')] ?? null)}
                   </div>
-                  <span>{Math.round((document.ocr_confidence ?? 0) * 100)}%</span>
+                ))}
+                <div className="flex justify-end pt-2">
+                  <Button size="sm" variant="secondary" onClick={saveEdits} loading={update.isPending} leftIcon={<Save size={14} />}>
+                    Save Edits
+                  </Button>
                 </div>
+              </div>
+            ) : (
+              <div className="h-[420px] flex flex-col items-center justify-center text-center text-sm text-slate-400 border border-slate-200 rounded-lg px-4">
+                <Clock size={28} className="mb-2 text-slate-300" />
+                <p>No extracted data available. Document may still be processing — use Re-extract.</p>
               </div>
             )}
           </div>
-        )}
+        </div>
 
         {document.translated_text && (
           <div className="border border-slate-200 rounded-lg p-4 bg-blue-50">
@@ -118,22 +207,34 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
           </div>
         )}
 
-        {!extracted && !document.translated_text && !document.ocr_raw_text && (
-          <div className="text-center py-8 text-slate-500">
-            <Clock size={32} className="mx-auto mb-2 text-slate-300" />
-            <p>No extracted data available. Document may still be processing.</p>
-            {document.status === 'uploaded' && (
-              <p className="text-xs mt-1">Status: {document.status} — extraction runs async via Gemini.</p>
-            )}
+        {/* Actions: re-extract, verify/reject, download */}
+        <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-slate-200">
+          <div className="flex items-center gap-1">
+            <select
+              value={reextractType}
+              onChange={(e) => setReextractType(e.target.value as PromptType)}
+              className="h-10 px-2 border border-slate-300 rounded-md text-sm bg-white cursor-pointer"
+              aria-label="Re-extract document type"
+            >
+              {REEXTRACT_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            <Button variant="secondary" onClick={handleReextract} loading={extract.isPending} leftIcon={<RefreshCw size={14} />}>
+              Re-extract
+            </Button>
           </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
+          <span className="flex-1" />
+          <Button variant="danger" onClick={() => setStatus('flagged')} loading={update.isPending} leftIcon={<ThumbsDown size={14} />}>
+            Reject
+          </Button>
+          <Button onClick={() => setStatus('verified')} loading={update.isPending} leftIcon={<ThumbsUp size={14} />}>
+            Verify
+          </Button>
           <Button variant="secondary" onClick={handleDownload} loading={loading} leftIcon={<Download size={16} />}>
             Download
           </Button>
-          <Button onClick={onClose}>Close</Button>
+          <Button variant="ghost" onClick={onClose}>Close</Button>
         </div>
       </div>
     </Modal>

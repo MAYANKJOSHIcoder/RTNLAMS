@@ -3,6 +3,8 @@ import { Upload, FileText, X, Globe } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
 import { useUploadDocument } from '../../hooks/useDocuments';
+import { useRecalcRiskForParcel } from '../../hooks/useRisk';
+import { compressImage } from '../../lib/utils/image';
 
 const LANGUAGES = [
   { value: 'en', label: 'English' },
@@ -30,14 +32,15 @@ export default function DocumentUpload({ parcelId, onUploaded }: DocumentUploadP
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadDocument();
+  const recalcRisk = useRecalcRiskForParcel();
 
-  const handleFile = (f: File | null) => {
+  const handleFile = async (f: File | null) => {
     if (!f) return;
     if (f.size > 10 * 1024 * 1024) {
       alert('File exceeds 10MB limit');
       return;
     }
-    setFile(f);
+    setFile(await compressImage(f));
   };
 
   const handleUpload = () => {
@@ -49,6 +52,7 @@ export default function DocumentUpload({ parcelId, onUploaded }: DocumentUploadP
           setFile(null);
           if (inputRef.current) inputRef.current.value = '';
           onUploaded?.();
+          recalcRisk.mutate(parcelId);
         },
       },
     );

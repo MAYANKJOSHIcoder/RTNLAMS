@@ -16,6 +16,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 import StageTimeline from '../components/parcels/StageTimeline';
+import StageBoard from '../components/parcels/StageBoard';
 import DocumentList from '../components/documents/DocumentList';
 import { useProject } from '../context/ProjectContext';
 import type { Parcel, AcquisitionStage } from '../lib/types';
@@ -38,6 +39,7 @@ export default function Parcels() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Overview');
   const [page, setPage] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
+  const [view, setView] = useState<'table' | 'board'>('table');
   const [addForm, setAddForm] = useState({ parcel_number: '', owner_name: '', area_hectares: '' });
   const pageSize = 8;
 
@@ -71,6 +73,10 @@ export default function Parcels() {
 
   const handleCsv = (file: File | null) => {
     if (!file) return;
+    if (!projectId) {
+      toast.error('Select a project before bulk import');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = String(e.target?.result ?? '');
@@ -89,7 +95,7 @@ export default function Parcels() {
           parcel_number: cols[idxNum],
           owner_name: cols[idxOwner],
           area_hectares: Number(cols[idxArea] ?? 1),
-          project_id: projectId ?? parcels[0]?.project_id,
+          project_id: projectId,
           status: 'identified' as const,
           geometry: null,
         };
@@ -161,13 +167,36 @@ export default function Parcels() {
           <option value="high">High</option>
           <option value="critical">Critical</option>
         </select>
-        <label className="h-10 px-3 border border-slate-300 rounded-lg text-sm bg-white flex items-center gap-1 cursor-pointer hover:bg-slate-50">
+        <label
+          className={`h-10 px-3 border border-slate-300 rounded-lg text-sm flex items-center gap-1 ${projectId ? 'bg-white cursor-pointer hover:bg-slate-50' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+          title={projectId ? undefined : 'Select a project first'}
+        >
           <Upload size={14} /> Bulk CSV
-          <input type="file" accept=".csv" className="hidden" onChange={(e) => handleCsv(e.target.files?.[0] ?? null)} />
+          <input type="file" accept=".csv" className="hidden" disabled={!projectId} onChange={(e) => handleCsv(e.target.files?.[0] ?? null)} />
         </label>
-        <Button onClick={() => setShowAdd(true)} leftIcon={<Plus size={16} />}>Add New Parcel</Button>
+        <span title={projectId ? undefined : 'Select a project first'}>
+          <Button onClick={() => setShowAdd(true)} disabled={!projectId} leftIcon={<Plus size={16} />}>Add New Parcel</Button>
+        </span>
+        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+          {(['table', 'board'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`px-3 h-10 text-sm font-medium cursor-pointer ${view === v ? 'bg-[#0F172A] text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+            >
+              {v === 'table' ? 'Table' : 'Board'}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {/* Board view */}
+      {view === 'board' ? (
+        <div className="bg-white border border-slate-200 rounded-xl p-3">
+          <StageBoard projectId={projectId ?? undefined} />
+        </div>
+      ) : (
+      <>
       {/* Middle: Table left + Map right */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-3">
@@ -231,6 +260,8 @@ export default function Parcels() {
           )}
         </div>
       </div>
+      </>
+      )}
 
       {/* Bottom: Detail tabs */}
       {selected && (
@@ -291,6 +322,10 @@ export default function Parcels() {
           <Input label="Area (hectares)" type="number" value={addForm.area_hectares} onChange={(e) => setAddForm((p) => ({ ...p, area_hectares: e.target.value }))} />
           <Button
             onClick={() => {
+              if (!projectId) {
+                toast.error('Select a project first');
+                return;
+              }
               if (!addForm.parcel_number.trim() || !addForm.owner_name.trim()) {
                 toast.error('Parcel number and owner required');
                 return;
@@ -300,7 +335,7 @@ export default function Parcels() {
                   parcel_number: addForm.parcel_number.trim(),
                   owner_name: addForm.owner_name.trim(),
                   area_hectares: Number(addForm.area_hectares || 1),
-                  project_id: projectId ?? parcels[0]?.project_id,
+                  project_id: projectId ?? '',
                   status: 'identified',
                   geometry: null,
                 } as unknown as Parcel,

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
 import type { AuditLog } from '../lib/types';
 import toast from 'react-hot-toast';
+import { useRecalcRiskForParcel } from './useRisk';
 
 export function useAuditLogs(parcelId?: string) {
   return useQuery({
@@ -55,6 +56,7 @@ export function useAuditStats() {
 
 export function useCreateAudit() {
   const qc = useQueryClient();
+  const recalcRisk = useRecalcRiskForParcel();
   return useMutation({
     mutationFn: async (payload: Partial<AuditLog> & { audit_type: AuditLog['audit_type']; finding: string; severity: AuditLog['severity'] }) => {
       if (!isSupabaseConfigured()) throw new Error('Supabase not configured — fill .env');
@@ -76,6 +78,7 @@ export function useCreateAudit() {
       qc.invalidateQueries({ queryKey: ['audit'] });
       qc.invalidateQueries({ queryKey: ['audit-stats'] });
       toast.success('Audit logged');
+      if (data.parcel_id) recalcRisk.mutate(data.parcel_id);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -83,6 +86,7 @@ export function useCreateAudit() {
 
 export function useUpdateAudit() {
   const qc = useQueryClient();
+  const recalcRisk = useRecalcRiskForParcel();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<AuditLog> & { id: string }) => {
       if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
@@ -93,6 +97,7 @@ export function useUpdateAudit() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['audit', data.parcel_id] });
       toast.success('Audit updated');
+      if (data.parcel_id) recalcRisk.mutate(data.parcel_id);
     },
     onError: (e: Error) => toast.error(e.message),
   });

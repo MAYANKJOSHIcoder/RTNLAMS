@@ -97,7 +97,7 @@ export default function Landing() {
             <div>© 2026 National Land Acquisition System</div>
           </div>
           <div className="text-slate-500 max-w-md">
-            Built with Vite + Supabase + MapLibre + Gemini. Data sources: OpenStreetMap, Sentinel Hub. This is an academic MVP — not a government production system.
+            Built with Vite + Supabase + MapLibre + Gemini. Data sources: OpenStreetMap, Planet Basemaps. This is an academic MVP — not a government production system.
           </div>
         </div>
       </footer>

@@ -13,10 +13,6 @@ interface Service {
 }
 
 const TIMEOUT = 8000;
-const fetchOpts = (token?: string) => ({
-  signal: AbortSignal.timeout(TIMEOUT),
-  headers: { apikey: config.supabaseAnonKey, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-});
 
 const services: Service[] = [
   {
@@ -54,9 +50,9 @@ const services: Service[] = [
     key: 'storage',
     label: 'Storage buckets (004)',
     check: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${config.supabaseUrl}/storage/v1/bucket/documents`, fetchOpts(session?.access_token));
-      return res.ok ? 'ok' : 'down';
+      // Authenticated client transport — proves bucket exists + RLS allows this session
+      const { error } = await supabase.storage.from('documents').list('', { limit: 1 });
+      return error ? 'down' : 'ok';
     },
   },
   {
@@ -86,9 +82,8 @@ const services: Service[] = [
     key: 'satellite',
     label: 'Satellite tiles (Esri)',
     check: async () => {
-      // ponytail: public object URL 404s when empty — any HTTP response means Storage API is up
-      const res = await fetch(`${config.supabaseUrl}/storage/v1/object/public/documents/health-probe`, { signal: AbortSignal.timeout(TIMEOUT) });
-      return res.status > 0 ? 'ok' : 'down';
+      const res = await fetch('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/4/8/5', { signal: AbortSignal.timeout(TIMEOUT) });
+      return res.ok ? 'ok' : 'down';
     },
   },
 ];

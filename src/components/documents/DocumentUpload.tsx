@@ -5,6 +5,8 @@ import { Select } from '../ui/Select';
 import { Spinner } from '../ui/Spinner';
 import { useUploadDocument } from '../../hooks/useDocuments';
 import { useRecalcRiskForParcel } from '../../hooks/useRisk';
+import { useGeminiExtraction } from '../../hooks/useGemini';
+import type { PromptType } from '../../lib/gemini/prompts';
 import { compressImage } from '../../lib/utils/image';
 
 const LANGUAGES = [
@@ -33,6 +35,7 @@ export default function DocumentUpload({ parcelId, onUploaded }: DocumentUploadP
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadDocument();
+  const extract = useGeminiExtraction();
   const recalcRisk = useRecalcRiskForParcel();
 
   const handleFile = async (f: File | null) => {
@@ -44,19 +47,21 @@ export default function DocumentUpload({ parcelId, onUploaded }: DocumentUploadP
     setFile(await compressImage(f));
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!file) return;
-    upload.mutate(
-      { file, parcelId, docType, language },
-      {
-        onSuccess: () => {
-          setFile(null);
-          if (inputRef.current) inputRef.current.value = '';
-          onUploaded?.();
-          recalcRisk.mutate(parcelId);
-        },
-      },
-    );
+    // deed/survey_map/handwritten_deed map 1:1; title/other use the generic deed prompt
+    const promptType: PromptType = docType === 'survey_map' || docType === 'handwritten_deed' ? docType : 'deed';
+    try {
+      const doc = await upload.mutateAsync({ file, parcelId, docType, language });
+      setFile(null);
+      if (inputRef.current) inputRef.current.value = '';
+      onUploaded?.();
+      // Auto-run OCR pipeline (Tesseract → IndicTrans → Gemini) right after upload
+      await extract.mutateAsync({ file, documentId: doc.id, promptType });
+      recalcRisk.mutate(parcelId);
+    } catch {
+      /* toasts already shown by the mutations */
+    }
   };
 
   return (
@@ -150,14 +155,20 @@ export default function DocumentUpload({ parcelId, onUploaded }: DocumentUploadP
         </p>
       )}
 
+      {upload.isSuccess && extract.isPending && (
+        <p className="text-xs text-slate-500 flex items-center gap-2">
+          <Spinner size="sm" /> Extracting text (OCR → translate → Gemini)…
+        </p>
+      )}
+
       <Button
         onClick={handleUpload}
-        disabled={!file || upload.isPending}
-        loading={upload.isPending}
+        disabled={!file || upload.isPending || extract.isPending}
+        loading={upload.isPending || extract.isPending}
         leftIcon={<Globe size={16} />}
         className="w-full"
       >
-        {upload.isPending ? 'Uploading…' : 'Upload Document'}
+        {upload.isPending ? 'Uploading…' : extract.isPending ? 'Extracting…' : 'Upload Document'}
       </Button>
 
       {upload.isError && <p className="text-xs text-red-600">{(upload.error as Error).message}</p>}

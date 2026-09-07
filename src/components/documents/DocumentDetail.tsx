@@ -7,6 +7,7 @@ import { Modal } from '../ui/Modal';
 import { useUpdateDocument } from '../../hooks/useDocuments';
 import { useRecalcRiskForParcel } from '../../hooks/useRisk';
 import { useGeminiExtraction } from '../../hooks/useGemini';
+import { getSignedUrl, downloadObject } from '../../lib/supabase/storage';
 import type { Document as DocType } from '../../lib/types';
 import type { PromptType } from '../../lib/gemini/prompts';
 
@@ -42,6 +43,7 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
   const [perFieldConf, setPerFieldConf] = useState<Record<string, number>>({});
   const [reextractType, setReextractType] = useState<PromptType>('deed');
   const [loading, setLoading] = useState(false);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const update = useUpdateDocument();
   const recalcRisk = useRecalcRiskForParcel();
   const extract = useGeminiExtraction();
@@ -59,12 +61,25 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
     setPerFieldConf((data.confidence_per_field as Record<string, number>) ?? {});
   }, [document?.id, document?.status, document?.ocr_extracted_data]);
 
+  // Mint a short-lived signed URL for the private-bucket preview
+  useEffect(() => {
+    let cancelled = false;
+    setSignedUrl(null);
+    if (document?.file_url) {
+      getSignedUrl('documents', document.file_url).then((u) => {
+        if (!cancelled) setSignedUrl(u);
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [document?.id, document?.file_url]);
+
   const handleDownload = async () => {
     if (!document?.file_url) return;
     setLoading(true);
     try {
-      const res = await fetch(document.file_url);
-      const blob = await res.blob();
+      const blob = await downloadObject('documents', document.file_url);
       const url = window.URL.createObjectURL(blob);
       const a = window.document.createElement('a');
       a.href = url;
@@ -102,8 +117,7 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
   const handleReextract = async () => {
     if (!document?.file_url) return;
     try {
-      const res = await fetch(document.file_url);
-      const blob = await res.blob();
+      const blob = await downloadObject('documents', document.file_url);
       const file = new File([blob], document.file_name ?? 'document.pdf', { type: blob.type || 'application/pdf' });
       extract.mutate({ file, promptType: reextractType, documentId: document.id });
     } catch {
@@ -142,7 +156,11 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
           <div>
             <h4 className="font-medium text-slate-900 mb-2 text-sm">Preview</h4>
             {document.file_url ? (
-              <iframe src={document.file_url} title="Document preview" className="w-full h-[420px] rounded-lg border border-slate-200 bg-white" />
+              signedUrl ? (
+                <iframe src={signedUrl} title="Document preview" className="w-full h-[420px] rounded-lg border border-slate-200 bg-white" />
+              ) : (
+                <div className="h-[420px] flex items-center justify-center text-sm text-slate-400 border border-slate-200 rounded-lg">Loading preview…</div>
+              )
             ) : (
               <div className="h-[420px] flex items-center justify-center text-sm text-slate-400 border border-slate-200 rounded-lg">No file available</div>
             )}

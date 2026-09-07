@@ -9,6 +9,7 @@ export interface AppConfig {
   supabaseUrl: string;
   supabaseAnonKey: string;
   geminiApiKey: string;
+  geminiModel: string;
   indicTransApiUrl: string;
 }
 
@@ -66,6 +67,7 @@ export const config: AppConfig = (() => {
     supabaseUrl: e.VITE_SUPABASE_URL ?? '',
     supabaseAnonKey: e.VITE_SUPABASE_ANON_KEY ?? '',
     geminiApiKey: e.VITE_GEMINI_API_KEY ?? '',
+    geminiModel: e.VITE_GEMINI_MODEL ?? 'gemini-3.1-flash-lite',
     indicTransApiUrl: e.VITE_INDICTRAN_API_URL ?? '',
   };
 })();

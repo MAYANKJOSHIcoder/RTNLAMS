@@ -8,6 +8,7 @@ import os
 import re
 import torch
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from IndicTransToolkit import IndicProcessor
@@ -52,6 +53,9 @@ print("[IndicTrans2] Model loaded successfully")
 # FastAPI app
 # ──────────────────────────────────────────────────
 app = FastAPI(title="IndicTrans2 Translation API", version="1.0.0")
+
+# Local-only dev server (keyless) — allow the Vite frontend's CORS preflight
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
 class TranslateRequest(BaseModel):

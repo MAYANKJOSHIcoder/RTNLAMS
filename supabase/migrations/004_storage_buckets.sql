@@ -1,5 +1,5 @@
 -- IGDTUW Storage Buckets — PROMPT 4
--- Create Supabase Storage buckets for document uploads
+-- Create PRIVATE Supabase Storage buckets for document uploads (signed URLs for display)
 -- Run in Supabase SQL Editor AFTER 001_initial_schema.sql
 -- Idempotent: safe to re-run (drops+recreates policies, skips existing buckets)
 
@@ -8,17 +8,17 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'documents') THEN
     INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-    VALUES ('documents', 'documents', true, 10485760, ARRAY['application/pdf','image/jpeg','image/png','image/tiff','image/webp']);
+    VALUES ('documents', 'documents', false, 10485760, ARRAY['application/pdf','image/jpeg','image/png','image/tiff','image/webp']);
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'audit-evidence') THEN
     INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-    VALUES ('audit-evidence', 'audit-evidence', true, 10485760, ARRAY['image/jpeg','image/png','image/webp','image/tiff']);
+    VALUES ('audit-evidence', 'audit-evidence', false, 10485760, ARRAY['image/jpeg','image/png','image/webp','image/tiff']);
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'hearing-minutes') THEN
     INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-    VALUES ('hearing-minutes', 'hearing-minutes', true, 10485760, ARRAY['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document']);
+    VALUES ('hearing-minutes', 'hearing-minutes', false, 10485760, ARRAY['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document']);
   END IF;
 END $$;
 
@@ -40,8 +40,8 @@ ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'documents' AND auth.uid() = owner);
 
 DROP POLICY IF EXISTS "Public read access to documents" ON storage.objects;
-CREATE POLICY "Public read access to documents"
-ON storage.objects FOR SELECT TO anon, authenticated
+CREATE POLICY "Authenticated read access to documents"
+ON storage.objects FOR SELECT TO authenticated
 USING (bucket_id = 'documents');
 
 -- RLS Policies for audit-evidence bucket
@@ -61,8 +61,8 @@ ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'audit-evidence' AND auth.uid() = owner);
 
 DROP POLICY IF EXISTS "Public read access to audit evidence" ON storage.objects;
-CREATE POLICY "Public read access to audit evidence"
-ON storage.objects FOR SELECT TO anon, authenticated
+CREATE POLICY "Authenticated read access to audit evidence"
+ON storage.objects FOR SELECT TO authenticated
 USING (bucket_id = 'audit-evidence');
 
 -- RLS Policies for hearing-minutes bucket
@@ -82,6 +82,6 @@ ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'hearing-minutes' AND auth.uid() = owner);
 
 DROP POLICY IF EXISTS "Public read access to hearing minutes" ON storage.objects;
-CREATE POLICY "Public read access to hearing minutes"
-ON storage.objects FOR SELECT TO anon, authenticated
+CREATE POLICY "Authenticated read access to hearing minutes"
+ON storage.objects FOR SELECT TO authenticated
 USING (bucket_id = 'hearing-minutes');

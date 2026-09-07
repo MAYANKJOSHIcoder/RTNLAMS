@@ -50,6 +50,8 @@ export function useUploadDocument() {
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const path = `${pid}/${Date.now()}-${sanitizedName}`;
 
+      // Private bucket: store the storage PATH in file_url — signed URLs are minted on display
+
       // Upload to Supabase Storage
       const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, {
         cacheControl: '3600',
@@ -57,17 +59,13 @@ export function useUploadDocument() {
       });
       if (upErr) throw new Error(upErr.message);
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from(BUCKET).getPublicUrl(path);
-
       // Create document record
       const { data, error } = await supabase
         .from('documents')
         .insert({
           parcel_id: pid,
           doc_type: String(docType ?? '').trim() || 'deed',
-          file_url: publicUrl,
+          file_url: path,
           file_name: file.name,
           mime_type: file.type,
           file_size: file.size,
@@ -110,6 +108,16 @@ export function useDeleteDocument() {
   return useMutation({
     mutationFn: async ({ id, parcelId }: { id: string; parcelId?: string }) => {
       if (!isSupabaseConfigured()) throw new Error('Database not connected');
+      // Best-effort bucket cleanup first — row delete must not be blocked by storage RLS
+      const { data: row } = await supabase.from('documents').select('file_url').eq('id', id).single();
+      if (row?.file_url) {
+        // Rows store the storage path; legacy rows may hold a full public URL
+        const p = row.file_url.includes('/object/') ? row.file_url.split('/object/public/')[1]?.replace(/^documents\//, '') : row.file_url.replace(/^documents\//, '');
+        if (p) {
+          const { error: rmErr } = await supabase.storage.from(BUCKET).remove([p]);
+          if (rmErr) console.warn('[documents] bucket file not removed (RLS or already gone):', rmErr.message);
+        }
+      }
       const { error } = await supabase.from('documents').delete().eq('id', id);
       if (error) throw new Error(error.message);
       return parcelId;

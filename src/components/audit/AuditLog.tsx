@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ShieldCheck, AlertTriangle, Image as ImageIcon, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
 import { useAuditLogs, useUpdateAudit } from '../../hooks/useAudit';
 import { useAuth } from '../../context/AuthContext';
+import { getSignedUrl } from '../../lib/supabase/storage';
 import { Badge } from '../ui/Badge';
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -13,6 +14,22 @@ const SEVERITY_COLOR: Record<string, string> = {
 
 interface AuditLogProps {
   parcelId?: string;
+}
+
+// Resolves a private-bucket path (or legacy URL) to a short-lived signed URL
+function EvidenceImage({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getSignedUrl('audit-evidence', path).then((u) => {
+      if (!cancelled) setUrl(u);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+  if (!url) return <span className="text-slate-400">(preview unavailable)</span>;
+  return <img src={url} alt="Evidence" className="max-h-32 rounded border mt-1" />;
 }
 
 export default function AuditLogView({ parcelId }: AuditLogProps) {
@@ -86,7 +103,7 @@ export default function AuditLogView({ parcelId }: AuditLogProps) {
                   {a.image_url && (
                     <div className="flex items-center gap-2 text-xs text-slate-600">
                       <ImageIcon size={14} /> Evidence: <span className="truncate font-mono">{a.image_url}</span>
-                      {a.image_url.startsWith('http') && <img src={a.image_url} alt="Evidence" className="max-h-32 rounded border mt-1" />}
+                      <EvidenceImage path={a.image_url} />
                     </div>
                   )}
                   {!a.resolved && a.severity === 'critical' && (

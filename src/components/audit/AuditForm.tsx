@@ -41,8 +41,8 @@ export default function AuditForm({ parcelId, onSuccess }: AuditFormProps) {
         setUploading(false);
         return;
       }
-      const { data: { publicUrl } } = supabase.storage.from('audit-evidence').getPublicUrl(path);
-      image_url = publicUrl;
+      // Private bucket: store path only — signed URL minted on display
+      image_url = path;
       setUploading(false);
     }
 

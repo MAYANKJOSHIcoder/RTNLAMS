@@ -48,8 +48,8 @@ export default function HearingForm({ parcelId, onSuccess }: HearingFormProps) {
         setUploading(false);
         return;
       }
-      const { data: { publicUrl } } = supabase.storage.from('hearing-minutes').getPublicUrl(path);
-      minutes_file_url = publicUrl;
+      // Private bucket: store path only — signed URL minted on display
+      minutes_file_url = path;
       setUploading(false);
     }
 

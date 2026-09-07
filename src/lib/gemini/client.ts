@@ -134,10 +134,11 @@ Reconcile both outputs, preserve original_text, include translated_text, detecte
         ],
       },
     ],
-    generationConfig: { temperature: 0.1, responseMimeType: 'application/json' },
+    // ponytail: no temperature — Gemini 3.x rejects non-default values
+    generationConfig: { responseMimeType: 'application/json' },
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${config.geminiApiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`;
 
   let lastErr: Error | null = null;
   for (let attempt = 0; attempt <= retries; attempt++) {

@@ -1,13 +1,15 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import type { CompensationAward } from '../../lib/types';
 import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
 import { isSlaBreached } from '../../lib/compensation';
 
 interface PaymentDashboardProps {
   awards: CompensationAward[];
+  onAdvancePayment?: (award: CompensationAward) => void;
 }
 
-export default function PaymentDashboard({ awards }: PaymentDashboardProps) {
+export default function PaymentDashboard({ awards, onAdvancePayment }: PaymentDashboardProps) {
   const totalAwarded = awards.reduce((s, a) => s + Number(a.awarded_amount ?? 0), 0);
   const totalPaid = awards.filter((a) => a.payment_status === 'completed').reduce((s, a) => s + Number(a.awarded_amount ?? 0), 0);
   const pending = awards.filter((a) => a.payment_status !== 'completed');
@@ -78,6 +80,7 @@ export default function PaymentDashboard({ awards }: PaymentDashboardProps) {
                   <th className="px-3 py-2 text-right font-medium">Awarded</th>
                   <th className="px-3 py-2 text-left font-medium">Status</th>
                   <th className="px-3 py-2 text-left font-medium">Date</th>
+                  {onAdvancePayment && <th className="px-3 py-2 text-left font-medium">Action</th>}
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -98,6 +101,17 @@ export default function PaymentDashboard({ awards }: PaymentDashboardProps) {
                         </Badge>
                       </td>
                       <td className="px-3 py-2 text-slate-500">{a.payment_date ? new Date(a.payment_date).toLocaleDateString() : '-'}</td>
+                      {onAdvancePayment && (
+                        <td className="px-3 py-2">
+                          {a.payment_status === 'pending' || a.payment_status === 'initiated' ? (
+                            <Button size="sm" variant="secondary" onClick={() => onAdvancePayment(a)}>
+                              {a.payment_status === 'pending' ? 'Initiate' : 'Mark Paid'}
+                            </Button>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ShieldCheck, AlertTriangle, Image as ImageIcon, ChevronDown, ChevronUp } from 'lucide-react';
-import { useAuditLogs } from '../../hooks/useAudit';
+import { ShieldCheck, AlertTriangle, Image as ImageIcon, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
+import { useAuditLogs, useUpdateAudit } from '../../hooks/useAudit';
+import { useAuth } from '../../context/AuthContext';
 import { Badge } from '../ui/Badge';
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -16,6 +17,9 @@ interface AuditLogProps {
 
 export default function AuditLogView({ parcelId }: AuditLogProps) {
   const { data: audits = [], isLoading } = useAuditLogs(parcelId);
+  const { profile } = useAuth();
+  const updateAudit = useUpdateAudit();
+  const canResolve = ['admin', 'auditor'].includes(profile?.role ?? '');
   const [filterSeverity, setFilterSeverity] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [filterResolved, setFilterResolved] = useState('all');
@@ -89,6 +93,17 @@ export default function AuditLogView({ parcelId }: AuditLogProps) {
                     <div className="flex items-center gap-1 text-xs text-red-600">
                       <AlertTriangle size={12} /> Critical unresolved — needs immediate attention
                     </div>
+                  )}
+                  {canResolve && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateAudit.mutate({ id: a.id, resolved: !a.resolved, resolved_at: !a.resolved ? new Date().toISOString() : null } as never);
+                      }}
+                      className="flex items-center gap-1 text-xs font-medium text-[#0369A1] hover:underline cursor-pointer"
+                    >
+                      <CheckCircle2 size={14} /> {a.resolved ? 'Reopen finding' : 'Mark resolved'}
+                    </button>
                   )}
                 </div>
               )}

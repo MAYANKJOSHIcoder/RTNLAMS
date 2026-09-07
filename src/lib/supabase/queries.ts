@@ -136,17 +136,12 @@ export async function getParcelsIntersectingCorridor(corridorGeometry: GeoJsonGe
   try {
     if (!corridorGeometry) throw new Error('corridorGeometry required');
     if (!isSupabaseConfigured()) return [];
-    // Try ST_Intersects RPC with GeoJSON
     const rpc = await supabase.rpc('parcels_intersecting_corridor' as never, { corridor: corridorGeometry as never } as never);
-    if (!rpc.error && Array.isArray(rpc.data)) return rpc.data as Parcel[];
-    // Fallback: bounding-box intersect (simplified)
-    const { data, error } = await supabase.from('parcels').select('*');
-    if (error) throw new Error(error.message);
-    // For MVP, return all if no RPC — real intersection needs PostGIS server function
-    return (data ?? []) as Parcel[];
+    if (rpc.error) throw new Error(rpc.error.message);
+    return (rpc.data ?? []) as Parcel[];
   } catch (e) {
     console.warn('[queries:getParcelsIntersectingCorridor]', e);
-    return [];
+    throw e instanceof Error ? e : new Error(String(e));
   }
 }
 

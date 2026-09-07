@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
 import type { AcquisitionStage } from '../lib/types';
-import { canAdvance, STAGES, getStageDef, calculateDeadline } from '../lib/stages';
+import { canAdvance, STAGES, getStageDef, calculateDeadline, markBreachedIfNeeded } from '../lib/stages';
 import toast from 'react-hot-toast';
 import { useRecalcRiskForParcel } from './useRisk';
 
@@ -79,7 +79,7 @@ export function useAdvanceStage() {
   });
 }
 
-// SLA monitoring: fetch stages breaching deadline
+// SLA monitoring: fetch stages breaching deadline, persist 'breached' status once
 export function useSlaBreaches() {
   return useQuery({
     queryKey: ['sla-breaches'],
@@ -91,7 +91,11 @@ export function useSlaBreaches() {
         .in('status', ['pending', 'in_progress'])
         .lt('sla_deadline', new Date().toISOString());
       if (error) throw new Error(error.message);
-      return (data ?? []) as AcquisitionStage[];
+      const breaches = (data ?? []) as AcquisitionStage[];
+      // ponytail: client-side persist on dashboard poll; a DB cron would be better at scale
+      const ids = breaches.filter((b) => markBreachedIfNeeded(b) === 'breached').map((b) => b.id);
+      if (ids.length) await supabase.from('acquisition_stages').update({ status: 'breached' }).in('id', ids);
+      return breaches;
     },
     refetchInterval: 60_000,
   });

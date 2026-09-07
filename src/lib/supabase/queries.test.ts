@@ -64,14 +64,15 @@ describe('getParcelsNearby', () => {
 });
 
 describe('getParcelsIntersectingCorridor', () => {
-  it('falls back to full fetch when corridor RPC missing', async () => {
-    const result = await getParcelsIntersectingCorridor({
-      type: 'LineString',
-      coordinates: [
-        [77.0, 28.3],
-        [77.2, 28.5],
-      ],
-    } as never);
-    expect(result).toHaveLength(2);
+  it('throws when corridor RPC fails (no fake full-fetch fallback)', async () => {
+    await expect(
+      getParcelsIntersectingCorridor({
+        type: 'LineString',
+        coordinates: [
+          [77.0, 28.3],
+          [77.2, 28.5],
+        ],
+      } as never),
+    ).rejects.toThrow();
   });
 });

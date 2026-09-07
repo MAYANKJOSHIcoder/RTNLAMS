@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import toast from 'react-hot-toast';
 import { useParcelsGeoJson, statusColor } from '../../hooks/useParcels';
+import { getParcelsIntersectingCorridor } from '../../lib/supabase/queries';
 import type { Parcel } from '../../lib/types';
 import { config, isPlanetConfigured } from '../../lib/config';
 import MapControls from './MapControls';
@@ -37,6 +39,12 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
   const [filter, setFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [satelliteEnabled, setSatelliteEnabled] = useState(false);
+  const [corridorMode, setCorridorMode] = useState(false);
+  const corridorPointsRef = useRef<[number, number][]>([]);
+  const [corridorCount, setCorridorCount] = useState<number | null>(null);
+  const corridorModeRef = useRef(false);
+  const finishCorridorRef = useRef<() => Promise<void>>(async () => {});
+  corridorModeRef.current = corridorMode;
 
   const { geoJson } = useParcelsGeoJson(null, projectId);
 
@@ -148,6 +156,31 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
         filter: ['==', ['get', 'parcel_number'], ''],
       });
 
+      // Corridor alignment layers (empty until drawn)
+      map.addSource('corridor', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } as never });
+      map.addLayer({ id: 'corridor-line', type: 'line', source: 'corridor', paint: { 'line-color': '#DC2626', 'line-width': 3, 'line-dasharray': [2, 1] } });
+      map.addSource('corridor-hits', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } as never });
+      map.addLayer({ id: 'corridor-hits-fill', type: 'fill', source: 'corridor-hits', paint: { 'fill-color': '#DC2626', 'fill-opacity': 0.25 } });
+      map.addLayer({ id: 'corridor-hits-line', type: 'line', source: 'corridor-hits', paint: { 'line-color': '#DC2626', 'line-width': 2 } });
+
+      // Corridor drawing: single click adds a point, double click runs the query
+      map.on('click', (e: { lngLat: { lng: number; lat: number } }) => {
+        if (!corridorModeRef.current) return;
+        corridorPointsRef.current.push([e.lngLat.lng, e.lngLat.lat]);
+        const fc = {
+          type: 'FeatureCollection',
+          features: corridorPointsRef.current.length >= 2
+            ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: corridorPointsRef.current }, properties: {} }]
+            : [],
+        };
+        (map.getSource('corridor') as maplibregl.GeoJSONSource)?.setData(fc as never);
+      });
+      map.on('dblclick', (e: { originalEvent: Event }) => {
+        if (!corridorModeRef.current) return;
+        e.originalEvent.preventDefault();
+        void finishCorridorRef.current();
+      });
+
       map.on('mousemove', 'parcels-fill', (e: { features?: { properties: Record<string, unknown> }[] }) => {
         map.getCanvas().style.cursor = 'pointer';
         const f = e.features?.[0];
@@ -215,6 +248,55 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
 
   const handleToggleSatellite = () => setSatelliteEnabled((prev) => !prev);
 
+  // Corridor alignment: click to draw a line, double-click to run ST_Intersects via RPC
+  const handleToggleCorridor = () => {
+    const next = !corridorMode;
+    setCorridorMode(next);
+    setCorridorCount(null);
+    corridorPointsRef.current = [];
+    const map = mapRef.current;
+    if (!map) return;
+    map.getCanvas().style.cursor = next ? 'crosshair' : '';
+    if (!next && map.getSource('corridor')) (map.getSource('corridor') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: [] } as never);
+    if (!next && map.getSource('corridor-hits')) (map.getSource('corridor-hits') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: [] } as never);
+  };
+
+  const finishCorridor = async () => {
+    const map = mapRef.current;
+    const pts = corridorPointsRef.current;
+    if (!map || pts.length < 2) return;
+    try {
+      const hits = await getParcelsIntersectingCorridor({ type: 'LineString', coordinates: pts } as never);
+      setCorridorCount(hits.length);
+      const fc = {
+        type: 'FeatureCollection',
+        features: hits.map((p) => ({
+          type: 'Feature',
+          geometry: p.geometry as never,
+          properties: { parcel_number: p.parcel_number },
+        })),
+      };
+      const src = map.getSource('corridor-hits') as maplibregl.GeoJSONSource | undefined;
+      if (src) src.setData(fc as never);
+      toast.success(`${hits.length} parcel(s) intersect the corridor`);
+    } catch (e) {
+      toast.error(`Corridor query failed: ${(e as Error).message}`);
+    }
+  };
+  finishCorridorRef.current = finishCorridor;
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.getSource('corridor')) return;
+    const fc = {
+      type: 'FeatureCollection',
+      features: corridorPointsRef.current.length >= 2
+        ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: corridorPointsRef.current }, properties: {} }]
+        : [],
+    };
+    (map.getSource('corridor') as maplibregl.GeoJSONSource).setData(fc as never);
+  }, [corridorMode, corridorCount]);
+
   return (
     <div className="relative border border-slate-200 rounded-xl overflow-hidden bg-white" style={{ height }}>
       <div ref={containerRef} className="w-full h-full" aria-label="Parcel map" role="application" />
@@ -229,6 +311,9 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
         statusColor={statusColor}
         satelliteEnabled={satelliteEnabled}
         onToggleSatellite={handleToggleSatellite}
+        corridorMode={corridorMode}
+        onToggleCorridor={handleToggleCorridor}
+        corridorCount={corridorCount}
       />
       {!filtered.features.length && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/60 pointer-events-none">

@@ -1,4 +1,4 @@
-import { Search, ZoomIn, ZoomOut, MapPin, Satellite } from 'lucide-react';
+import { Search, ZoomIn, ZoomOut, MapPin, Satellite, Route } from 'lucide-react';
 import { isPlanetConfigured } from '../../lib/config';
 
 interface MapControlsProps {
@@ -12,6 +12,9 @@ interface MapControlsProps {
   statusColor: (s: string) => string;
   satelliteEnabled: boolean;
   onToggleSatellite: () => void;
+  corridorMode: boolean;
+  onToggleCorridor: () => void;
+  corridorCount: number | null;
 }
 
 export default function MapControls({
@@ -24,6 +27,9 @@ export default function MapControls({
   onZoomOut,
   satelliteEnabled,
   onToggleSatellite,
+  corridorMode,
+  onToggleCorridor,
+  corridorCount,
 }: MapControlsProps) {
   const planetReady = isPlanetConfigured();
 
@@ -55,6 +61,16 @@ export default function MapControls({
           ))}
         </select>
         <div className="flex gap-1">
+          <button
+            onClick={onToggleCorridor}
+            className={`h-9 px-3 rounded-lg shadow-sm text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors ${
+              corridorMode ? 'bg-red-600 text-white border-red-600' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+            }`}
+            aria-label="Toggle corridor alignment drawing"
+            title="Draw a project corridor: click points on the map, double-click to match parcels"
+          >
+            <Route size={14} /> {corridorMode ? 'Drawing… (dbl-click to finish)' : corridorCount != null ? `Corridor: ${corridorCount} hit${corridorCount === 1 ? '' : 's'}` : 'Corridor'}
+          </button>
           <button onClick={onZoomIn} aria-label="Zoom in" className="w-9 h-9 bg-white border border-slate-200 rounded-lg shadow-sm flex items-center justify-center hover:bg-slate-50 cursor-pointer">
             <ZoomIn size={16} />
           </button>

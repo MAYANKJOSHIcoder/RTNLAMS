@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Upload, FileText, X, Globe } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
+import { Spinner } from '../ui/Spinner';
 import { useUploadDocument } from '../../hooks/useDocuments';
 import { useRecalcRiskForParcel } from '../../hooks/useRisk';
 import { compressImage } from '../../lib/utils/image';
@@ -144,9 +145,9 @@ export default function DocumentUpload({ parcelId, onUploaded }: DocumentUploadP
       </div>
 
       {upload.isPending && (
-        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-          <div className="h-2 bg-[#0369A1] animate-pulse w-1/2" />
-        </div>
+        <p className="text-xs text-slate-500 flex items-center gap-2">
+          <Spinner size="sm" /> Uploading {file?.name}…
+        </p>
       )}
 
       <Button

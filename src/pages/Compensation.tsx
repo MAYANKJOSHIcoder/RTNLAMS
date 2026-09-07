@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
-import { useCompensation, useCreateCompensation, useUpdateCompensation } from "../hooks/useCompensation";
+import { useCompensation, useCreateCompensation, useUpdateCompensation, usePaymentStatus } from "../hooks/useCompensation";
+import { useParcels } from "../hooks/useParcels";
 import CompensationForm from "../components/compensation/CompensationForm";
 import PaymentDashboard from "../components/compensation/PaymentDashboard";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
@@ -8,9 +9,12 @@ import type { PaymentStatus } from "../lib/types";
 export default function Compensation() {
   const { id: selectedId } = useParams();
   const { data: awards = [], isLoading, isError, error } = useCompensation(selectedId);
+  const { data: parcels = [] } = useParcels();
   const createAward = useCreateCompensation();
   const updateAward = useUpdateCompensation();
+  const setPayment = usePaymentStatus();
   const existingAward = awards[0] ?? null;
+  const parcel = parcels.find((p) => p.id === selectedId);
 
   return (
     <div className="p-6 space-y-4">
@@ -22,6 +26,7 @@ export default function Compensation() {
       {selectedId ? (
         <CompensationForm
           award={existingAward}
+          parcel={parcel ? { area_hectares: parcel.area_hectares, land_use: parcel.land_use } : undefined}
           onSave={(payload) => {
             const typed = { ...payload, payment_status: payload.payment_status as PaymentStatus };
             if (existingAward) {
@@ -34,7 +39,11 @@ export default function Compensation() {
         />
       ) : null}
 
-      <PaymentDashboard awards={awards ?? []} />
+      <PaymentDashboard awards={awards ?? []} onAdvancePayment={(a) => {
+        const next: PaymentStatus = a.payment_status === 'pending' ? 'initiated' : 'completed';
+        const reference = next === 'completed' ? window.prompt('Payment reference (UTR / transaction ID)?') ?? undefined : undefined;
+        setPayment.mutate({ id: a.id, status: next, reference });
+      }} />
 
       {!selectedId && (
         <div className="bg-white border border-slate-200 rounded-xl p-4">

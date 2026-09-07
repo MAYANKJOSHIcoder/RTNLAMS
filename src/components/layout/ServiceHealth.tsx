@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity } from 'lucide-react';
-import { config, isGeminiConfigured, isIndicTransConfigured, isPlanetConfigured, isSupabaseConfigured } from '../../lib/config';
+import { config, isGeminiConfigured, isIndicTransConfigured, isSupabaseConfigured } from '../../lib/config';
 import { supabase } from '../../lib/supabase/client';
 import { tesseractReady } from '../../lib/gemini/client';
 
@@ -25,8 +25,8 @@ const services: Service[] = [
     required: true,
     check: async () => {
       if (!isSupabaseConfigured()) return 'down';
-      const res = await fetch(`${config.supabaseUrl}/rest/v1/`, fetchOpts());
-      return res.ok ? 'ok' : 'down';
+      const { error } = await supabase.from('parcels').select('id', { count: 'exact', head: true });
+      return error ? 'down' : 'ok';
     },
   },
   {
@@ -83,12 +83,12 @@ const services: Service[] = [
     check: async () => (await tesseractReady() ? 'ok' : 'down'),
   },
   {
-    key: 'planet',
-    label: 'Planet satellite tiles',
+    key: 'satellite',
+    label: 'Satellite tiles (Esri)',
     check: async () => {
-      if (!isPlanetConfigured()) return 'skipped';
-      const res = await fetch(`https://tiles0.planet.com/basemaps/v1/planet-tiles/global_monthly_2024_01_mosaic/gmap/4/8/5.png?api_key=${config.planetApiKey}`, { signal: AbortSignal.timeout(TIMEOUT) });
-      return res.ok ? 'ok' : 'down';
+      // ponytail: public object URL 404s when empty — any HTTP response means Storage API is up
+      const res = await fetch(`${config.supabaseUrl}/storage/v1/object/public/documents/health-probe`, { signal: AbortSignal.timeout(TIMEOUT) });
+      return res.status > 0 ? 'ok' : 'down';
     },
   },
 ];

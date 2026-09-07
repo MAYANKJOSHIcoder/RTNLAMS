@@ -9,7 +9,6 @@ export interface AppConfig {
   supabaseUrl: string;
   supabaseAnonKey: string;
   geminiApiKey: string;
-  planetApiKey: string;
   indicTransApiUrl: string;
 }
 
@@ -46,12 +45,6 @@ export function isGeminiConfigured(): boolean {
   return !!key && !isPlaceholder('VITE_GEMINI_API_KEY', key);
 }
 
-/** Planet — optional, enables satellite basemap tiles */
-export function isPlanetConfigured(): boolean {
-  const key = getVal('VITE_PLANET_API_KEY');
-  return !!key && !isPlaceholder('VITE_PLANET_API_KEY', key);
-}
-
 /** IndicTrans2 — optional, enables real translation (localhost:8080) */
 export function isIndicTransConfigured(): boolean {
   const url = getVal('VITE_INDICTRAN_API_URL');
@@ -73,7 +66,6 @@ export const config: AppConfig = (() => {
     supabaseUrl: e.VITE_SUPABASE_URL ?? '',
     supabaseAnonKey: e.VITE_SUPABASE_ANON_KEY ?? '',
     geminiApiKey: e.VITE_GEMINI_API_KEY ?? '',
-    planetApiKey: e.VITE_PLANET_API_KEY ?? '',
     indicTransApiUrl: e.VITE_INDICTRAN_API_URL ?? '',
   };
 })();

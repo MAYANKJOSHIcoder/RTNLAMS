@@ -1,5 +1,4 @@
 import { Search, ZoomIn, ZoomOut, MapPin, Satellite, Route } from 'lucide-react';
-import { isPlanetConfigured } from '../../lib/config';
 
 interface MapControlsProps {
   filter: string;
@@ -31,7 +30,6 @@ export default function MapControls({
   onToggleCorridor,
   corridorCount,
 }: MapControlsProps) {
-  const planetReady = isPlanetConfigured();
 
   return (
     <div className="absolute top-3 left-3 right-3 flex flex-col gap-2 pointer-events-none">
@@ -97,17 +95,14 @@ export default function MapControls({
         </div>
         <button
           onClick={onToggleSatellite}
-          disabled={!planetReady}
           className={`h-8 px-3 rounded-lg shadow-sm text-xs font-medium flex items-center gap-1.5 pointer-events-auto cursor-pointer transition-colors ${
-            planetReady
-              ? satelliteEnabled
-                ? 'bg-[#0F172A] text-white border-[#0F172A]'
-                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-              : 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+            satelliteEnabled
+              ? 'bg-[#0F172A] text-white border-[#0F172A]'
+              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
           }`}
-          aria-label={planetReady ? (satelliteEnabled ? 'Disable satellite layer' : 'Enable satellite layer') : 'Planet API key not configured'}
+          aria-label={satelliteEnabled ? 'Disable satellite layer' : 'Enable satellite layer'}
         >
-          <Satellite size={14} /> {satelliteEnabled ? 'Satellite' : planetReady ? 'Satellite' : 'Satellite (needs API key)'}
+          <Satellite size={14} /> Satellite
         </button>
       </div>
     </div>

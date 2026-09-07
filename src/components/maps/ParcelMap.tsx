@@ -5,7 +5,6 @@ import toast from 'react-hot-toast';
 import { useParcelsGeoJson, statusColor } from '../../hooks/useParcels';
 import { getParcelsIntersectingCorridor } from '../../lib/supabase/queries';
 import type { Parcel } from '../../lib/types';
-import { config, isPlanetConfigured } from '../../lib/config';
 import MapControls from './MapControls';
 
 interface ParcelMapProps {
@@ -24,13 +23,8 @@ const STATUS_LEGEND: Record<string, string> = {
   disputed: '#FCA5A5',
 };
 
-// Planet monthly mosaic — replace with desired mosaic name
-const PLANET_MOSAIC = 'global_monthly_2024_01_mosaic';
-
-function getPlanetTileUrl(): string {
-  const key = config.planetApiKey;
-  return `https://tiles0.planet.com/basemaps/v1/planet-tiles/${PLANET_MOSAIC}/gmap/{z}/{x}/{y}.png?api_key=${key}`;
-}
+// Esri World Imagery — free satellite basemap, no API key required
+const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
 export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId, height = '500px' }: ParcelMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -60,23 +54,19 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
     }),
   };
 
-  // Add/remove Planet satellite layer when toggled
+  // Add/remove satellite layer when toggled
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (!isPlanetConfigured()) {
-      setSatelliteEnabled(false);
-      return;
-    }
-    const sourceId = 'planet-satellite';
-    const layerId = 'planet-satellite-layer';
+    const sourceId = 'satellite';
+    const layerId = 'satellite-layer';
     if (satelliteEnabled) {
       if (!map.getSource(sourceId)) {
         map.addSource(sourceId, {
           type: 'raster',
-          tiles: [getPlanetTileUrl()],
+          tiles: [SATELLITE_TILE_URL],
           tileSize: 256,
-          attribution: '© Planet Labs',
+          attribution: 'Esri, Maxar, Earthstar Geographics',
         });
         map.addLayer({
           id: layerId,

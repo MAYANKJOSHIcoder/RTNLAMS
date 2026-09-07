@@ -19,8 +19,8 @@ An integrated digital control tower uniting **GIS parcel mapping**, **automated 
 | Compensation + Hearings + Audit | ✅ Complete |
 | Dashboard Control Tower | ✅ Complete |
 | Parcels Hub (Search, Map, Tabs, CSV) | ✅ Complete |
-| **Gemini OCR / IndicTrans Translation** | 🚧 **Mock** — needs API keys + IndicTrans2 server |
-| **Planet Satellite Tiles** | 🚧 **Partial** — needs `VITE_PLANET_API_KEY` |
+| **Gemini OCR / IndicTrans Translation** | ✅ **Real** — tesseract.js + IndicTrans2 server + Gemini (keys set) |
+| **Satellite Tiles** | ✅ **Real** — Esri World Imagery (free, no key) |
 | **Spatial RPCs / Storage Buckets** | 🚧 **Migrations created** — need applying in Supabase |
 
 ---
@@ -35,7 +35,7 @@ An integrated digital control tower uniting **GIS parcel mapping**, **automated 
 | Maps | **MapLibre GL JS** + **OpenStreetMap** tiles |
 | Backend | **Supabase** (PostgreSQL + PostGIS + Auth + Storage) |
 | AI / OCR | **Google Gemini 2.0 Flash** + **Tesseract.js** + **IndicTrans2** (Python FastAPI) |
-| Satellite | **Planet** (replaces Sentinel Hub) — `VITE_PLANET_API_KEY` |
+| Satellite | **Esri World Imagery** (free, no key; replaces Sentinel Hub claim) |
 | State | **@tanstack/react-query** |
 | Validation | **zod** + **react-hook-form** |
 | Charts | **Recharts** |
@@ -84,7 +84,7 @@ All via `import.meta.env.VITE_*` (validated independently in `src/lib/config.ts`
 | `VITE_SUPABASE_URL` | **Yes** | Supabase project | Supabase Settings → API |
 | `VITE_SUPABASE_ANON_KEY` | **Yes** | Supabase anon key | Supabase Settings → API |
 | `VITE_GEMINI_API_KEY` | For live OCR | Google Gemini | https://aistudio.google.com/apikey |
-| `VITE_PLANET_API_KEY` | For satellite | Planet basemaps | https://www.planet.com/account/ |
+| `VITE_PLANET_API_KEY` | (unused — satellite now uses free Esri tiles) | — | — |
 | `VITE_INDICTRAN_API_URL` | For translation | IndicTrans2 server | `http://localhost:8080` (local) or remote URL |
 
 **Missing keys → app runs in mock mode** (Delhi mock parcels, mock Gemini JSON, no satellite tiles).  
@@ -140,7 +140,7 @@ Seed: 3 projects, 30 parcels (Delhi/Mumbai), 60 docs, 60 stages, 10 hearings, 15
 - **Degraded Documents:** Centuries-old / torn handwriting → Gemini may hallucinate → flagged `confidence <0.5` + `Verify/Reject` human-in-loop.
 - **Judicial Overrides:** Court stay orders halt digital SLA workflows → manual tracking outside system.
 - **Digital Divide:** Rural owners may lack portal literacy → needs facilitation centers.
-- **Mock Mode:** Without `VITE_SUPABASE_URL`/`VITE_GEMINI_API_KEY`/`VITE_PLANET_API_KEY` app uses mock data — fill `.env` and apply SQL migrations for live.
+- **No Demo Data:** Without `VITE_SUPABASE_URL` the app shows "Database not connected" instead of fake data — fill `.env` and apply SQL migrations for live.
 - **Bundle Size:** `recharts`+`maplibre-gl` → chunks ~356KB (Dashboard) / ~979KB (MapLibre) — code-split per route mitigates; `vite` warns >500KB.
 - **Seed Data:** `seed.sql` must be run via Supabase SQL Editor (RLS blocks anon truncate).
 - **IndicTrans2 Server:** Separate Python process (`indictrans-server/`) — not deployed on Vercel; run locally or on GPU instance.

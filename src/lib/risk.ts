@@ -36,6 +36,15 @@ export interface RiskInput {
   auditLogs: AuditLog[];
 }
 
+// Parse a land_area value ("2.5 ha", "1.2 acres", 2.5, ...) into hectares
+const UNIT_TO_HA: Record<string, number> = { acre: 0.4047, bigha: 0.25, guntha: 0.0405 };
+export function parseAreaHa(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : NaN;
+  if (!isFinite(n) || n <= 0) return null;
+  const unit = typeof value === 'string' ? Object.keys(UNIT_TO_HA).find((u) => value.toLowerCase().includes(u)) : undefined;
+  return unit ? n * UNIT_TO_HA[unit] : n; // bare number / "ha" / "hectare" → already hectares
+}
+
 export function calculateRisk(input: RiskInput): Omit<RiskAssessment, 'id' | 'assessed_at'> & { factors: Record<string, unknown> } {
   const { parcel, documents, stages, auditLogs } = input;
 
@@ -74,10 +83,20 @@ export function calculateRisk(input: RiskInput): Omit<RiskAssessment, 'id' | 'as
     documentQuality = clamp01(flagged * 0.3 + (1 - avgConf) * 0.7);
   }
 
-  // 6. Area discrepancy: mocked if area small vs docs extraction mismatch
-  let areaDiscrepancy = 0.2;
-  // If any audit mentions area/discrepancy, escalate
-  if (auditLogs.some((a) => a.finding.toLowerCase().includes('area') || a.finding.toLowerCase().includes('discrepancy'))) areaDiscrepancy = 0.7;
+  // 6. Area discrepancy: compare doc-extracted land_area vs parcel.area_hectares
+  let areaDiscrepancy = 0.2; // unknown → neutral
+  const docAreas = documents
+    .map((d) => {
+      const ef = d.ocr_extracted_data?.extracted_fields as Record<string, unknown> | undefined;
+      return parseAreaHa(ef?.land_area ?? d.ocr_extracted_data?.land_area);
+    })
+    .filter((v): v is number => v !== null);
+  if (docAreas.length && parcel.area_hectares > 0) {
+    const avg = docAreas.reduce((a, b) => a + b, 0) / docAreas.length;
+    areaDiscrepancy = clamp01((Math.abs(avg - parcel.area_hectares) / parcel.area_hectares) * 2); // 50% off → 1.0
+  }
+  // Audit mentions area/discrepancy → escalate (never below the flagged level)
+  if (auditLogs.some((a) => a.finding.toLowerCase().includes('area') || a.finding.toLowerCase().includes('discrepancy'))) areaDiscrepancy = Math.max(areaDiscrepancy, 0.7);
 
   // 7. Encroachment: audit type satellite/field with encroachment finding
   let encroachment = 0.1;

@@ -9,11 +9,7 @@ export function useRiskAssessments(parcelId?: string) {
     queryKey: ['risk', parcelId],
     enabled: !!parcelId || parcelId === undefined,
     queryFn: async () => {
-      if (!isSupabaseConfigured()) {
-        // Mock assessments for demo
-        if (parcelId) return [] as RiskAssessment[];
-        return [] as RiskAssessment[];
-      }
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       let q = supabase.from('risk_assessments').select('*').order('assessed_at', { ascending: false });
       if (parcelId) q = q.eq('parcel_id', parcelId);
       const { data, error } = await q;
@@ -26,15 +22,7 @@ export function useRiskAssessments(parcelId?: string) {
 // Shared persistence: compute + insert assessment + update parcel risk_score
 async function persistRisk(input: RiskInput): Promise<RiskAssessment> {
   const computed = calculateRisk(input);
-  if (!isSupabaseConfigured()) {
-    // Return computed as mock assessment
-    return {
-      id: `mock-${input.parcel.id}`,
-      ...computed,
-      factors: computed.factors as Record<string, unknown>,
-      assessed_at: new Date().toISOString(),
-    } as RiskAssessment;
-  }
+  if (!isSupabaseConfigured()) throw new Error('Database not connected');
   // Persist to DB
   const { data, error } = await supabase
     .from('risk_assessments')

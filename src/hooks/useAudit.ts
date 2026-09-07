@@ -59,7 +59,7 @@ export function useCreateAudit() {
   const recalcRisk = useRecalcRiskForParcel();
   return useMutation({
     mutationFn: async (payload: Partial<AuditLog> & { audit_type: AuditLog['audit_type']; finding: string; severity: AuditLog['severity'] }) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured — fill .env');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       const sanitized = {
         parcel_id: payload.parcel_id ? String(payload.parcel_id).trim() : null,
         audit_type: String(payload.audit_type).trim() as AuditLog['audit_type'],
@@ -89,7 +89,7 @@ export function useUpdateAudit() {
   const recalcRisk = useRecalcRiskForParcel();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<AuditLog> & { id: string }) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       const { data, error } = await supabase.from('audit_logs').update(patch).eq('id', id).select().single();
       if (error) throw new Error(error.message);
       return data as AuditLog;
@@ -107,7 +107,7 @@ export function useDeleteAudit() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, parcelId }: { id: string; parcelId?: string | null }) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       const { error } = await supabase.from('audit_logs').delete().eq('id', id);
       if (error) throw new Error(error.message);
       return parcelId;

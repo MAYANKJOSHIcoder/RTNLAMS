@@ -44,7 +44,7 @@ export async function getParcelsByBbox(bbox: BBox): Promise<Parcel[]> {
   try {
     sanitizeBbox(bbox);
     if (!isSupabaseConfigured()) {
-      // Fallback uses in-memory mock via useParcels logic — return empty until configured
+      // Not configured → empty result; hooks surface "Database not connected" separately
       return [];
     }
     // Try PostGIS RPC if exists (ST_Within). If RPC not defined, fallback to full fetch + client filter

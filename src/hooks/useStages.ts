@@ -10,21 +10,8 @@ export function useStages(parcelId?: string) {
     queryKey: ['stages', parcelId],
     enabled: !!parcelId,
     queryFn: async () => {
-      if (!isSupabaseConfigured() || !parcelId) {
-        // Mock: generate stages for demo when not configured
-        return STAGES.map((def, i) => ({
-          id: `mock-${def.stage_number}`,
-          parcel_id: parcelId ?? 'mock-parcel',
-          stage_number: def.stage_number,
-          stage_name: def.stage_name,
-          status: (i === 0 ? 'completed' : i === 1 ? 'in_progress' : 'pending') as AcquisitionStage['status'],
-          assigned_to: null,
-          sla_deadline: def.sla_days ? new Date(Date.now() + def.sla_days * 86400000).toISOString() : null,
-          completed_at: i === 0 ? new Date().toISOString() : null,
-          notes: null,
-          created_at: new Date().toISOString(),
-        })) as AcquisitionStage[];
-      }
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
+      if (!parcelId) return [];
       const { data, error } = await supabase.from('acquisition_stages').select('*').eq('parcel_id', parcelId).order('stage_number');
       if (error) throw new Error(error.message);
       return (data ?? []) as AcquisitionStage[];
@@ -37,7 +24,7 @@ export function useAdvanceStage() {
   const recalcRisk = useRecalcRiskForParcel();
   return useMutation({
     mutationFn: async ({ stageId, parcelId, currentStages, targetNumber }: { stageId: string; parcelId: string; currentStages: AcquisitionStage[]; targetNumber?: number }) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured — fill .env');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       // Validation: can't skip
       if (targetNumber != null) {
         const check = canAdvance(currentStages, targetNumber);

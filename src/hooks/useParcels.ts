@@ -48,44 +48,7 @@ export function useParcels(bbox?: [number, number, number, number] | null, proje
   return useQuery({
     queryKey: ['parcels', bbox, projectId],
     queryFn: async () => {
-      if (!isSupabaseConfigured()) {
-        // Mock data so map renders before Supabase configured
-        const mock: Parcel[] = [
-          {
-            id: 'mock-1',
-            project_id: projectId ?? 'p1',
-            parcel_number: 'DL-SURV-001',
-            owner_name: 'Rajesh Kumar',
-            owner_cnic: null,
-            area_hectares: 2.5,
-            land_use: 'agricultural',
-            geometry: {
-              type: 'Polygon',
-              coordinates: [[[77.0, 28.5], [77.05, 28.5], [77.05, 28.55], [77.0, 28.55], [77.0, 28.5]]],
-            },
-            status: 'identified',
-            risk_score: 0.2,
-            created_at: new Date().toISOString(),
-          },
-          {
-            id: 'mock-2',
-            project_id: projectId ?? 'p1',
-            parcel_number: 'DL-SURV-002',
-            owner_name: 'Priya Sharma',
-            owner_cnic: null,
-            area_hectares: 1.8,
-            land_use: 'residential',
-            geometry: {
-              type: 'Polygon',
-              coordinates: [[[77.06, 28.5], [77.1, 28.5], [77.1, 28.55], [77.06, 28.55], [77.06, 28.5]]],
-            },
-            status: 'disputed',
-            risk_score: 0.85,
-            created_at: new Date().toISOString(),
-          },
-        ];
-        return mock;
-      }
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       let query = supabase.from('parcels').select('*');
       if (projectId) query = query.eq('project_id', projectId);
       // BBox filtering via PostGIS — if bbox provided, filter by intersecting geometry (client-side fallback if RPC unavailable)
@@ -97,7 +60,7 @@ export function useParcels(bbox?: [number, number, number, number] | null, proje
         const [minLng, minLat, maxLng, maxLat] = bbox;
         parcels = parcels.filter((p) => {
           if (!p.geometry || p.geometry.type !== 'Polygon') return true;
-          // rough centroid check for mock filtering
+          // centroid-in-bbox check (cheap; PostGIS RPC used in queries.ts when available)
           const coords = (p.geometry.coordinates as number[][][])[0];
           const lngs = coords.map((c) => c[0]);
           const lats = coords.map((c) => c[1]);
@@ -124,7 +87,7 @@ export function useCreateParcel() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (parcel: Partial<Parcel>) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured — fill .env');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       // sanitize before insert
       const sanitized = {
         parcel_number: String(parcel.parcel_number ?? '').trim(),
@@ -157,7 +120,7 @@ export function useUpdateParcel() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<Parcel> & { id: string }) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       const { data, error } = await supabase.from('parcels').update(patch).eq('id', id).select().single();
       if (error) throw new Error(error.message);
       return data as Parcel;
@@ -174,7 +137,7 @@ export function useDeleteParcel() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       const { error } = await supabase.from('parcels').delete().eq('id', id);
       if (error) throw new Error(error.message);
     },

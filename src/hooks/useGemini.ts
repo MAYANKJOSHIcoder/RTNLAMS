@@ -24,7 +24,7 @@ export function useGeminiExtraction() {
       if (file) raw = await extractFromFile(file, prompt);
       else if (imageBase64) raw = await callGemini({ prompt, imageBase64 });
       else {
-        // Direct text prompt (no image) — still exercises hybrid context with mock Tesseract
+        // Direct text prompt (no image) — skips Tesseract/IndicTrans preprocessing
         raw = await callGemini({ prompt });
       }
 

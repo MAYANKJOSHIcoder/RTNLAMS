@@ -97,7 +97,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
           ))}
         </nav>
 
-        {/* Notification badge placeholder — per ui-ux-pro-max nav-badge guidance */}
+        {/* SLA breach badge */}
         {!isCollapsed && (
           <div className="px-3 pb-2">
             <div className="bg-amber-50 border border-amber-200 rounded-md p-2.5 text-xs">

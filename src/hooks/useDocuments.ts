@@ -45,7 +45,7 @@ export function useUploadDocument() {
       if (v) throw new Error(v);
       const pid = String(parcelId ?? '').trim();
       if (!pid) throw new Error('parcelId required');
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured — fill .env (Storage bucket "documents")');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
 
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const path = `${pid}/${Date.now()}-${sanitizedName}`;
@@ -92,7 +92,7 @@ export function useUpdateDocument() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<Document> & { id: string }) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       const { data, error } = await supabase.from('documents').update(patch).eq('id', id).select().single();
       if (error) throw new Error(error.message);
       return data as Document;
@@ -109,7 +109,7 @@ export function useDeleteDocument() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, parcelId }: { id: string; parcelId?: string }) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       const { error } = await supabase.from('documents').delete().eq('id', id);
       if (error) throw new Error(error.message);
       return parcelId;

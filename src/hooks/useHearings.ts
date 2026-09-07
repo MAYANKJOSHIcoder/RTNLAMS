@@ -58,7 +58,7 @@ export function useCreateHearing() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Partial<Hearing> & { parcel_id: string; hearing_date: string; type: Hearing['type'] }) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured — fill .env');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       const sanitized = {
         parcel_id: String(payload.parcel_id).trim(),
         hearing_date: new Date(payload.hearing_date).toISOString(),
@@ -86,7 +86,7 @@ export function useUpdateHearing() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<Hearing> & { id: string }) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       const { data, error } = await supabase.from('hearings').update(patch).eq('id', id).select().single();
       if (error) throw new Error(error.message);
       return data as Hearing;
@@ -103,7 +103,7 @@ export function useDeleteHearing() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, parcelId }: { id: string; parcelId?: string }) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       const { error } = await supabase.from('hearings').delete().eq('id', id);
       if (error) throw new Error(error.message);
       return parcelId;

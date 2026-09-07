@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { WEIGHTS, clamp01, classifyRisk, calculateRisk, type RiskInput } from './risk';
+import { WEIGHTS, clamp01, classifyRisk, calculateRisk, parseAreaHa, type RiskInput } from './risk';
 import type { Parcel } from './types';
 
 function parcel(partial: Partial<Parcel> = {}): Parcel {
@@ -90,5 +90,23 @@ describe('calculateRisk — weighted overall', () => {
       r.encroachment_score * WEIGHTS.encroachment;
     expect(r.overall_risk).toBeCloseTo(Number(manual.toFixed(2)), 2);
     expect(r.risk_level).toBe(classifyRisk(r.overall_risk));
+  });
+});
+
+describe('parseAreaHa + area discrepancy factor', () => {
+  it('parses units to hectares', () => {
+    expect(parseAreaHa('2.5 ha')).toBe(2.5);
+    expect(parseAreaHa('1.2 acres')).toBeCloseTo(0.48564, 4);
+    expect(parseAreaHa(3)).toBe(3);
+    expect(parseAreaHa('n/a')).toBeNull();
+    expect(parseAreaHa(null)).toBeNull();
+  });
+
+  it('matching doc area keeps discrepancy low, 2x mismatch maxes it', () => {
+    const doc = (land_area: unknown) => ({ id: 'd1', doc_type: 'deed', status: 'verified', ocr_confidence: 0.9, ocr_extracted_data: { extracted_fields: { land_area } } }) as never;
+    const match = calculateRisk({ ...emptyInput(parcel({ area_hectares: 2 })), documents: [doc('2.05 ha')], stages: [], auditLogs: [] });
+    const mismatch = calculateRisk({ ...emptyInput(parcel({ area_hectares: 2 })), documents: [doc('4 ha')], stages: [], auditLogs: [] });
+    expect(match.area_discrepancy_score).toBeLessThan(0.1);
+    expect(mismatch.area_discrepancy_score).toBeCloseTo(1, 5);
   });
 });

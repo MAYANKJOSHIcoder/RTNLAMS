@@ -22,7 +22,7 @@ export function useCreateCompensation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Partial<CompensationAward> & { parcel_id: string }) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured — fill .env');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       const sanitized = {
         parcel_id: String(payload.parcel_id).trim(),
         calculated_amount: payload.calculated_amount != null ? Number(payload.calculated_amount) : null,
@@ -50,7 +50,7 @@ export function useUpdateCompensation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<CompensationAward> & { id: string }) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       const { data, error } = await supabase.from('compensation_awards').update(patch).eq('id', id).select().single();
       if (error) throw new Error(error.message);
       return data as CompensationAward;
@@ -67,7 +67,7 @@ export function usePaymentStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, status, reference }: { id: string; status: PaymentStatus; reference?: string }) => {
-      if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
       const patch: Partial<CompensationAward> = { payment_status: status };
       if (status === 'completed') {
         patch.payment_date = new Date().toISOString();

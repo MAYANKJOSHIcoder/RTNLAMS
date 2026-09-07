@@ -101,20 +101,7 @@ interface GeminiOptions {
 
 export async function callGemini({ prompt, imageBase64, mimeType = 'image/jpeg', retries = MAX_RETRIES }: GeminiOptions): Promise<string> {
   if (!isGeminiConfigured() || !config.geminiApiKey) {
-    console.warn('[gemini] VITE_GEMINI_API_KEY not configured — returning mock extraction');
-    await delay(400);
-    return JSON.stringify(
-      {
-        original_text: 'MOCK_ORIGINAL (fill VITE_GEMINI_API_KEY to enable live)',
-        translated_text: 'MOCK_TRANSLATED',
-        extracted_fields: { owner_name: 'Mock Singh', survey_number: 'MOCK-001', land_area: '2.5 ha' },
-        confidence: 0.72,
-        confidence_per_field: { owner_name: 0.85, survey_number: 0.6, land_area: 0.7 },
-        document_language: 'hi',
-      },
-      null,
-      2,
-    );
+    throw new Error('Gemini API key not configured — fill VITE_GEMINI_API_KEY in .env');
   }
 
   checkRateLimit();

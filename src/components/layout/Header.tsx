@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Bell, ChevronDown, LogOut, Settings, User, Menu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSlaBreaches } from '../../hooks/useStages';
+import ServiceHealth from './ServiceHealth';
 
 const crumbs: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -57,6 +58,8 @@ export default function Header({ onMenuToggle }: { onMenuToggle?: () => void }) 
       </div>
 
       <div className="flex items-center gap-2">
+        <ServiceHealth />
+
         <button
           aria-label={`Notifications ${notifCount} unread`}
           onClick={() => notifCount > 0 && navigate('/dashboard')}

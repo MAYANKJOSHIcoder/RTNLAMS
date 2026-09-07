@@ -42,7 +42,7 @@ export function useGeminiExtraction() {
 
       // Persist to documents table if documentId given and Supabase configured
       if (documentId && isSupabaseConfigured()) {
-        const { error } = await supabase
+        const { data: updated, error } = await supabase
           .from('documents')
           .update({
             ocr_extracted_data: parsed as unknown as Record<string, unknown>,
@@ -52,8 +52,10 @@ export function useGeminiExtraction() {
             language: parsed.document_language,
             status: 'extracted',
           })
-          .eq('id', documentId);
+          .eq('id', documentId)
+          .select('id');
         if (error) throw new Error(error.message);
+        if (!updated || updated.length === 0) throw new Error('Extraction not saved — RLS blocked the write (need admin/field_officer role)');
       }
 
       return parsed;

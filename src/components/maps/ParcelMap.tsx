@@ -74,7 +74,7 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
           id: layerId,
           type: 'raster',
           source: sourceId,
-        }, 'osm'); // Insert below OSM so parcels stay on top
+        }); // above OSM (opaque) so satellite is visible; parcel layers were added last → stay on top
       }
     } else {
       if (map.getLayer(layerId)) map.removeLayer(layerId);

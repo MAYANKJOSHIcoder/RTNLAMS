@@ -4,6 +4,7 @@
  * Rate limit 15/min, retries 3, uses config.ts VITE_GEMINI_API_KEY via import.meta.env
  */
 import { config, isGeminiConfigured, isIndicTransConfigured } from '../config';
+import { createWorker, type Worker } from 'tesseract.js';
 
 const RATE_LIMIT = 15;
 const WINDOW_MS = 60_000;
@@ -32,10 +33,25 @@ async function delay(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// Simulated Tesseract step (in production use tesseract.js in browser)
-async function runTesseractMock(imageBase64: string): Promise<string> {
-  if (!imageBase64) return '';
-  return `TESSERACT_RAW_TEXT (simulated, ${Math.round(imageBase64.length / 1024)}KB image) — extracted for IndicTrans preprocessing`;
+// Real Tesseract OCR (WASM, runs in a Web Worker; eng+hin+urd traineddata cached after first use)
+let tesseractWorker: Promise<Worker> | null = null;
+export function tesseractReady(): Promise<boolean> {
+  tesseractWorker ??= createWorker(['eng', 'hin', 'urd']);
+  return tesseractWorker.then(() => true).catch(() => false);
+}
+
+async function runTesseract(imageBase64: string, mimeType: string): Promise<string> {
+  if (!imageBase64 || mimeType === 'application/pdf') return ''; // PDFs go straight to Gemini vision
+  try {
+    tesseractWorker ??= createWorker(['eng', 'hin', 'urd']);
+    const worker = await tesseractWorker;
+    const { data: { text } } = await worker.recognize(`data:${mimeType};base64,${imageBase64}`);
+    return text.trim();
+  } catch (e) {
+    console.warn('[gemini] Tesseract failed, continuing without local OCR:', (e as Error).message);
+    pipelineWarnings.push('Tesseract OCR failed — Gemini vision used alone');
+    return '';
+  }
 }
 
 // Real IndicTrans2 server call (localhost:8080) with mock fallback
@@ -107,8 +123,8 @@ export async function callGemini({ prompt, imageBase64, mimeType = 'image/jpeg',
   let tesseractText = '';
   let indic: { detectedLanguage: string; translatedText: string } = { detectedLanguage: 'en', translatedText: '' };
   if (imageBase64) {
-    tesseractText = await runTesseractMock(imageBase64);
-    indic = await runIndicTrans(tesseractText);
+    tesseractText = await runTesseract(imageBase64, mimeType);
+    if (tesseractText) indic = await runIndicTrans(tesseractText);
   }
 
   const combinedPrompt = `${prompt}

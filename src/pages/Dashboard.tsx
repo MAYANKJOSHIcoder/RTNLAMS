@@ -11,11 +11,12 @@ import KPICard from '../components/dashboard/KPICard';
 import StagePipeline from '../components/dashboard/StagePipeline';
 import ActivityFeed, { type ActivityItem } from '../components/dashboard/ActivityFeed';
 import RiskAlerts from '../components/dashboard/RiskAlerts';
+import { ErrorBanner } from '../components/ui/ErrorBanner';
 import { useProject } from '../context/ProjectContext';
 
 export default function Dashboard() {
   const { projectId } = useProject();
-  const { data: parcels = [], refetch: refetchParcels } = useParcels(null, projectId ?? undefined);
+  const { data: parcels = [], refetch: refetchParcels, isError, error } = useParcels(null, projectId ?? undefined);
   const { data: slaBreaches = [] } = useSlaBreaches();
   const { data: risks = [] } = useRiskAssessments();
   const { data: awards = [] } = useCompensation();
@@ -111,6 +112,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto">
+      {isError && <ErrorBanner message={`Dashboard data failed to load: ${error?.message ?? 'check connection / RLS'}`} />}
       {/* Top Row - KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <KPICard title="Total Active Projects" value={projectsCount ?? 0} subtitle="National pipeline" icon={FolderKanban} />

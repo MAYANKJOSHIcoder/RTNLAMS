@@ -2,13 +2,15 @@ import { useParams } from "react-router-dom";
 import { useAuditLogs } from "../hooks/useAudit";
 import AuditForm from "../components/audit/AuditForm";
 import AuditLog from "../components/audit/AuditLog";
+import { ErrorBanner } from "../components/ui/ErrorBanner";
 
 export default function Audit() {
   const { id: selectedId } = useParams();
-  const { data: logs = [], isLoading, refetch } = useAuditLogs(selectedId);
+  const { data: logs = [], isLoading, refetch, isError, error } = useAuditLogs(selectedId);
 
   return (
     <div className="p-6 space-y-4">
+      {isError && <ErrorBanner message={`Audit logs failed to load: ${error?.message ?? 'check connection / RLS'}`} />}
       <h1 className="text-2xl font-semibold text-slate-900">
         Audit {selectedId ? `(Parcel: ${selectedId})` : "(All)"}
       </h1>

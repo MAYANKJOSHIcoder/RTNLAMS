@@ -3,15 +3,17 @@ import { useParams } from "react-router-dom";
 import { useHearings } from "../hooks/useHearings";
 import HearingForm from "../components/hearings/HearingForm";
 import HearingCalendar from "../components/hearings/HearingCalendar";
+import { ErrorBanner } from "../components/ui/ErrorBanner";
 import type { Hearing } from "../lib/types";
 
 export default function Hearings() {
   const { id: selectedId } = useParams();
-  const { data: allHearings = [], isLoading } = useHearings(selectedId);
+  const { data: allHearings = [], isLoading, isError, error } = useHearings(selectedId);
   const [selectedHearing, setSelectedHearing] = useState<Hearing | null>(null);
 
   return (
     <div className="p-6 space-y-4">
+      {isError && <ErrorBanner message={`Hearings failed to load: ${error?.message ?? 'check connection / RLS'}`} />}
       <h1 className="text-2xl font-semibold text-slate-900">
         Hearings {selectedId ? `(Parcel: ${selectedId})` : "(All)"}
       </h1>

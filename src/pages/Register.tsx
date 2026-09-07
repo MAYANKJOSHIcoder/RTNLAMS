@@ -6,14 +6,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import type { UserRole } from '../lib/types';
-
-const roles: { value: UserRole; label: string }[] = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'field_officer', label: 'Field Officer' },
-  { value: 'auditor', label: 'Auditor' },
-  { value: 'citizen', label: 'Citizen' },
-];
 
 const schema = z
   .object({
@@ -21,16 +13,11 @@ const schema = z
     email: z.string().email('Enter a valid email').trim().min(1, 'Email is required'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirm_password: z.string().min(1, 'Confirm your password'),
-    role: z.enum(['admin', 'field_officer', 'auditor', 'citizen'] as const, { message: 'Select a role' }),
-    cnic: z.string().trim().optional(),
+    cnic: z.string().trim().min(13, 'CNIC is required (13 digits, e.g. 35202-1234567-1)'),
   })
   .refine((d) => d.password === d.confirm_password, {
     path: ['confirm_password'],
     message: 'Passwords do not match',
-  })
-  .refine((d) => d.role !== 'citizen' || (d.cnic && d.cnic.length >= 13), {
-    path: ['cnic'],
-    message: 'CNIC is required for citizens (13 digits, e.g. 35202-1234567-1)',
   });
 
 type FormData = z.infer<typeof schema>;
@@ -42,22 +29,19 @@ export default function Register() {
   const {
     register: rhfReg,
     handleSubmit,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     mode: 'onBlur',
-    defaultValues: { full_name: '', email: '', password: '', confirm_password: '', role: 'citizen', cnic: '' },
+    defaultValues: { full_name: '', email: '', password: '', confirm_password: '', cnic: '' },
   });
-  const watchRole = watch('role');
 
   const onSubmit = async (data: FormData) => {
     const res = await doRegister({
       full_name: data.full_name,
       email: data.email,
       password: data.password,
-      role: data.role as UserRole,
-      cnic: data.cnic || undefined,
+      cnic: data.cnic,
     });
     if (res?.error) {
       toast.error(res.error);
@@ -109,27 +93,8 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="role" className="block text-sm font-medium text-slate-700 mb-1">
-              Role <span className="text-red-600">*</span>
-            </label>
-            <select
-              id="role"
-              className={`w-full h-11 px-3 border rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0369A1] ${errors.role ? 'border-red-500' : 'border-slate-300'}`}
-              {...rhfReg('role')}
-            >
-              {roles.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-            {errors.role && <p role="alert" className="text-xs text-red-600 mt-1">{errors.role.message}</p>}
-            <p className="text-xs text-slate-500 mt-1">Role stored in <code>user_profiles</code> table via Supabase.</p>
-          </div>
-
-          <div>
             <label htmlFor="cnic" className="block text-sm font-medium text-slate-700 mb-1">
-              CNIC {watchRole === 'citizen' && <span className="text-red-600">*</span>}
+              CNIC <span className="text-red-600">*</span>
             </label>
             <input
               id="cnic"
@@ -139,7 +104,7 @@ export default function Register() {
               {...rhfReg('cnic')}
             />
             {errors.cnic && <p role="alert" className="text-xs text-red-600 mt-1">{errors.cnic.message}</p>}
-            {watchRole !== 'citizen' && <p className="text-xs text-slate-400 mt-1">Optional for non-citizen roles.</p>}
+            <p className="text-xs text-slate-400 mt-1">Accounts register as citizens; staff roles (admin, field officer, auditor) are assigned by an administrator.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

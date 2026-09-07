@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
-import type { UserProfile, UserRole } from '../lib/types';
+import type { UserProfile } from '../lib/types';
 import type { Session, User } from '@supabase/supabase-js';
 
 export interface AuthState {
@@ -13,7 +13,7 @@ export interface AuthState {
 export interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
-  register: (data: { full_name: string; email: string; password: string; role: UserRole; cnic?: string }) => Promise<{ error?: string }>;
+  register: (data: { full_name: string; email: string; password: string; cnic?: string }) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -101,13 +101,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
-  const register = async (data: { full_name: string; email: string; password: string; role: UserRole; cnic?: string }) => {
+  const register = async (data: { full_name: string; email: string; password: string; cnic?: string }) => {
     if (!isSupabaseConfigured()) return { error: 'Supabase not configured — fill .env and restart.' };
-    const { full_name, email, password, role, cnic } = data;
+    const { full_name, email, password, cnic } = data;
     const sanitizedEmail = email.trim().toLowerCase();
     const sanitizedName = full_name.trim();
-    if (!sanitizedName || !sanitizedEmail || !password || !role) return { error: 'All fields required' };
-    const meta: Record<string, string> = { full_name: sanitizedName, role };
+    if (!sanitizedName || !sanitizedEmail || !password) return { error: 'All fields required' };
+    // Role is always 'citizen' — the handle_new_user() DB trigger creates the profile row.
+    // Staff roles are assigned via scripts/set-role.mjs (service key), never client-side.
+    const meta: Record<string, string> = { full_name: sanitizedName, role: 'citizen' };
     if (cnic) meta.cnic = cnic.trim();
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: sanitizedEmail,
@@ -116,15 +118,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (authError) return { error: authError.message };
     if (!authData.user) return { error: 'Registration failed — no user returned' };
-    const { error: profileError } = await supabase.from('user_profiles').upsert({
-      id: authData.user.id,
-      full_name: sanitizedName,
-      role,
-      cnic: cnic?.trim() || null,
-    });
-    if (profileError) {
-      console.warn('[auth] profile upsert failed:', profileError.message);
-    }
     return {};
   };
 

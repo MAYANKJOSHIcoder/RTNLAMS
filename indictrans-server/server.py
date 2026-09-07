@@ -5,6 +5,7 @@ Model: ai4bharat/indictrans2-en-indic-dist-200M (950 MB VRAM, GPU recommended)
 """
 
 import os
+import re
 import torch
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -76,6 +77,32 @@ def map_lang(code: str) -> str:
     return LANG_MAP.get(code.lower(), code)
 
 
+# Unicode script ranges for auto-detection (src_lang="auto" from the frontend)
+SCRIPT_RANGES: list[tuple[str, str]] = [
+    ("urd", r"[\u0600-\u06FF]"),   # Arabic script → Urdu
+    ("dev", r"[\u0900-\u097F]"),   # Devanagari → Hindi
+    ("ben", r"[\u0980-\u09FF]"),   # Bengali
+    ("pan", r"[\u0A00-\u0A7F]"),   # Gurmukhi → Punjabi
+    ("guj", r"[\u0A80-\u0AFF]"),   # Gujarati
+    ("ory", r"[\u0B00-\u0B7F]"),   # Odia
+    ("tam", r"[\u0B80-\u0BFF]"),   # Tamil
+    ("tel", r"[\u0C00-\u0C7F]"),   # Telugu
+    ("kan", r"[\u0C80-\u0CFF]"),   # Kannada
+    ("mal", r"[\u0D00-\u0D7F]"),   # Malayalam
+]
+
+
+def detect_lang(text: str) -> str:
+    """Return simple lang code for the dominant Indic script in text, else 'en'."""
+    for _prefix, pattern in SCRIPT_RANGES:
+        if re.search(pattern, text):
+            # map back through LANG_MAP: find the simple code whose IndicTrans2 code starts with prefix
+            for simple, full in LANG_MAP.items():
+                if full.startswith(_prefix):
+                    return simple
+    return "en"
+
+
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok", model=MODEL_NAME, device=DEVICE)
@@ -86,7 +113,9 @@ def translate(req: TranslateRequest) -> TranslateResponse:
     if not req.sentences:
         raise HTTPException(status_code=400, detail="sentences list cannot be empty")
 
-    src = map_lang(req.src_lang)
+    src_requested = req.src_lang.lower()
+    src_code = detect_lang(" ".join(req.sentences)) if src_requested == "auto" else req.src_lang
+    src = map_lang(src_code)
     tgt = map_lang(req.tgt_lang)
 
     # Preprocess (mandatory: normalizes unicode, adds language tags)

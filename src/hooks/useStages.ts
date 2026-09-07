@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
 import type { AcquisitionStage } from '../lib/types';
-import { canAdvance, STAGES } from '../lib/stages';
+import { canAdvance, STAGES, getStageDef, calculateDeadline } from '../lib/stages';
 import toast from 'react-hot-toast';
 import { useRecalcRiskForParcel } from './useRisk';
 
@@ -50,9 +50,20 @@ export function useAdvanceStage() {
       const next = currentStages.find((s) => s.stage_number === nextNum);
       if (next) {
         const { error: nextErr } = await supabase.from('acquisition_stages').update({ status: 'in_progress' }).eq('id', next.id);
-        if (nextErr) console.warn('[stages] failed to advance next stage:', nextErr.message);
-      } else if (nextNum <= STAGES.length && isSupabaseConfigured()) {
-        // If next not created (e.g., after initialization), create it — fallback: update parcel's current stage logic handles display
+        if (nextErr) throw new Error(`Next stage not started: ${nextErr.message}`);
+      } else if (nextNum <= STAGES.length) {
+        // Stage row was never created (e.g., partial init) — create it as in_progress
+        const def = getStageDef(nextNum);
+        if (def) {
+          const { error: createErr } = await supabase.from('acquisition_stages').insert({
+            parcel_id: parcelId,
+            stage_number: def.stage_number,
+            stage_name: def.stage_name,
+            status: 'in_progress',
+            sla_deadline: calculateDeadline(new Date(), def.sla_days),
+          });
+          if (createErr) throw new Error(`Next stage not created: ${createErr.message}`);
+        }
       }
       // Invalidate for parcel
       void parcelId;

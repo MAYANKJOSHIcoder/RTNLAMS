@@ -15,6 +15,7 @@ dist-ssr
 # Env — never commit secrets (PROMPT 2 Security Rule)
 .env
 .env.local
+scripts/.env
 
 # Editor directories and files
 .vscode/*

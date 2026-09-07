@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Upload, MapPin, AlertTriangle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useDebounce } from '../hooks/useDebounce';
+import { useAuth } from '../context/AuthContext';
 import { useParcels, useCreateParcel } from '../hooks/useParcels';
+import { ErrorBanner } from '../components/ui/ErrorBanner';
 import { useDocuments } from '../hooks/useDocuments';
 import { useStages, useAdvanceStage } from '../hooks/useStages';
 import { useHearings } from '../hooks/useHearings';
@@ -26,7 +29,11 @@ const TABS = ['Overview', 'Documents', 'Timeline', 'Hearings', 'Compensation', '
 
 export default function Parcels() {
   const { projectId } = useProject();
-  const { data: parcels = [], isLoading } = useParcels(null, projectId ?? undefined);
+  const { profile } = useAuth();
+  const navigate = useNavigate();
+  const canCreate = ['admin', 'field_officer'].includes(profile?.role ?? '');
+  const canAudit = ['admin', 'auditor'].includes(profile?.role ?? '');
+  const { data: parcels = [], isLoading, isError, error: parcelsError } = useParcels(null, projectId ?? undefined);
   const createParcel = useCreateParcel();
   const advanceStage = useAdvanceStage();
   const [advanceConfirm, setAdvanceConfirm] = useState<{ stage: AcquisitionStage; def: typeof STAGES[0] } | null>(null);
@@ -138,6 +145,7 @@ export default function Parcels() {
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
+      {isError && <ErrorBanner message={`Parcels failed to load: ${parcelsError?.message ?? 'check connection / RLS'}`} />}
       {/* Top: Search + filters + actions */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="flex-1 min-w-64 relative">
@@ -292,20 +300,44 @@ export default function Parcels() {
                 <div><div className="text-slate-500 text-xs">Village/District</div><div className="font-medium">{(selected as unknown as Record<string, unknown>).village as string ?? '-'} / {(selected as unknown as Record<string, unknown>).district as string ?? '-'}</div></div>
               </div>
             )}
-            {tab === 'Documents' && <DocumentList parcelId={selected.id} />}
+            {tab === 'Documents' && (
+              <div className="space-y-3">
+                {canCreate && (
+                  <Button size="sm" leftIcon={<Upload size={14} />} onClick={() => navigate(`/documents/${selected.id}`)}>
+                    Upload Document
+                  </Button>
+                )}
+                <DocumentList parcelId={selected.id} />
+              </div>
+            )}
             {tab === 'Timeline' && <StageTimeline stages={stages} onStageClick={handleStageClick} />}
             {tab === 'Hearings' && (
               <div className="space-y-2">
+                {canCreate && (
+                  <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => navigate(`/hearings/${selected.id}`)}>
+                    Schedule Hearing
+                  </Button>
+                )}
                 {hearings.length === 0 ? <div className="text-sm text-slate-500">No hearings linked</div> : hearings.map((h) => <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-sm"><div className="font-medium">{h.type} — {new Date(h.hearing_date).toLocaleString()}</div><div className="text-slate-600">{h.outcome ?? h.notes ?? '-'}</div></div>)}
               </div>
             )}
             {tab === 'Compensation' && (
               <div className="space-y-2">
+                {canCreate && (
+                  <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => navigate(`/compensation/${selected.id}`)}>
+                    Record Award
+                  </Button>
+                )}
                 {awards.length === 0 ? <div className="text-sm text-slate-500">No awards</div> : awards.map((a) => <div key={a.id} className="border border-slate-200 rounded-lg p-3 text-sm flex justify-between"><span>₹{Number(a.awarded_amount).toLocaleString('en-IN')} • {a.payment_status}</span><Badge variant={a.payment_status === 'completed' ? 'success' : 'warning'}>{a.payment_status}</Badge></div>)}
               </div>
             )}
             {tab === 'Audit' && (
               <div className="space-y-2">
+                {canAudit && (
+                  <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => navigate(`/audit/${selected.id}`)}>
+                    Log Audit Finding
+                  </Button>
+                )}
                 {audits.length === 0 ? <div className="text-sm text-slate-500">No audit entries</div> : audits.map((a) => <div key={a.id} className="border border-slate-200 rounded-lg p-3 text-sm"><div className="font-medium">{a.audit_type} • {a.severity}</div><div className="text-slate-600">{a.finding}</div></div>)}
                 {docs.length > 0 && <div className="text-xs text-slate-400">{docs.length} documents linked</div>}
               </div>

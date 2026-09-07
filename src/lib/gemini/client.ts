@@ -9,6 +9,14 @@ const RATE_LIMIT = 15;
 const WINDOW_MS = 60_000;
 const MAX_RETRIES = 3;
 
+// Non-fatal pipeline warnings (e.g. translation skipped) — consumed + toasted by useGemini
+let pipelineWarnings: string[] = [];
+export function consumePipelineWarnings(): string[] {
+  const w = pipelineWarnings;
+  pipelineWarnings = [];
+  return w;
+}
+
 const timestamps: number[] = [];
 
 function checkRateLimit(): void {
@@ -54,11 +62,12 @@ async function runIndicTrans(rawText: string): Promise<{ detectedLanguage: strin
     if (!res.ok) throw new Error(`IndicTrans ${res.status}`);
     const data = await res.json();
     return {
-      detectedLanguage: 'en', // server translates to English
+      detectedLanguage: data.src_lang ?? 'en', // server auto-detects via script ranges
       translatedText: data.translations?.[0] ?? rawText,
     };
   } catch (e) {
     console.warn('[gemini] IndicTrans server call failed, using mock:', (e as Error).message);
+    pipelineWarnings.push('IndicTrans server unreachable — translation skipped (start indictrans-server or check VITE_INDICTRAN_API_URL)');
     const hasDevanagari = /[\u0900-\u097F]/.test(rawText);
     return {
       detectedLanguage: hasDevanagari ? 'hi' : 'en',

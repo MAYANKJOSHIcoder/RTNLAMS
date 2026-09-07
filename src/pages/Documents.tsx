@@ -4,17 +4,19 @@ import { useDocuments } from "../hooks/useDocuments";
 import DocumentUpload from "../components/documents/DocumentUpload";
 import DocumentList from "../components/documents/DocumentList";
 import DocumentDetail from "../components/documents/DocumentDetail";
+import { ErrorBanner } from "../components/ui/ErrorBanner";
 import type { Document as DocType } from "../lib/types";
 
 export default function Documents() {
   const { id: selectedId } = useParams();
-  const { data: docs = [], isLoading, refetch } = useDocuments(selectedId);
+  const { data: docs = [], isLoading, refetch, isError, error } = useDocuments(selectedId);
   const [viewDoc, setViewDoc] = useState<DocType | null>(null);
 
   const handleView = (doc: DocType) => setViewDoc(doc);
 
   return (
     <div className="p-6 space-y-4">
+      {isError && <ErrorBanner message={`Documents failed to load: ${error?.message ?? 'check connection / RLS'}`} />}
       <h1 className="text-2xl font-semibold text-slate-900">
         Documents {selectedId ? `(Parcel: ${selectedId})` : "(All)"}
       </h1>

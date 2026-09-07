@@ -2,17 +2,19 @@ import { useParams } from "react-router-dom";
 import { useCompensation, useCreateCompensation, useUpdateCompensation } from "../hooks/useCompensation";
 import CompensationForm from "../components/compensation/CompensationForm";
 import PaymentDashboard from "../components/compensation/PaymentDashboard";
+import { ErrorBanner } from "../components/ui/ErrorBanner";
 import type { PaymentStatus } from "../lib/types";
 
 export default function Compensation() {
   const { id: selectedId } = useParams();
-  const { data: awards = [], isLoading } = useCompensation(selectedId);
+  const { data: awards = [], isLoading, isError, error } = useCompensation(selectedId);
   const createAward = useCreateCompensation();
   const updateAward = useUpdateCompensation();
   const existingAward = awards[0] ?? null;
 
   return (
     <div className="p-6 space-y-4">
+      {isError && <ErrorBanner message={`Compensation failed to load: ${error?.message ?? 'check connection / RLS'}`} />}
       <h1 className="text-2xl font-semibold text-slate-900">
         Compensation {selectedId ? `(Parcel: ${selectedId})` : "(All)"}
       </h1>

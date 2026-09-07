@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { callGemini, extractFromFile } from '../lib/gemini/client';
+import { callGemini, extractFromFile, consumePipelineWarnings } from '../lib/gemini/client';
 import { PROMPT_MAP, type PromptType } from '../lib/gemini/prompts';
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
 import type { GeminiExtractionResponse } from '../lib/types';
@@ -60,6 +60,7 @@ export function useGeminiExtraction() {
     },
     onSuccess: (_data, vars) => {
       if (vars.documentId) qc.invalidateQueries({ queryKey: ['documents'] });
+      consumePipelineWarnings().forEach((w) => toast(w, { icon: '⚠️' }));
       toast.success('Extraction completed');
     },
     onError: (e: Error) => toast.error(e.message),

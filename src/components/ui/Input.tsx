@@ -25,7 +25,7 @@ export function Input({ label, error, requiredIndicator, leftIcon, rightIcon, cl
           aria-invalid={!!error}
           aria-describedby={error ? `${inputId}-error` : undefined}
           className={cn(
-            'w-full h-11 px-3 border rounded-md text-sm bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0369A1] focus:border-[#0369A1] disabled:opacity-50 disabled:cursor-not-allowed',
+            'w-full h-11 px-3 border rounded-md text-sm bg-[#0c0c0c] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] focus:border-[#38bdf8] disabled:opacity-50 disabled:cursor-not-allowed',
             leftIcon ? 'pl-9' : '',
             rightIcon ? 'pr-9' : '',
             error ? 'border-red-500 focus:ring-red-500' : 'border-slate-300',

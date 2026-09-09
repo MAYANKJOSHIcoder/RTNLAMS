@@ -34,7 +34,7 @@ export default function StageTimeline({ stages, onStageClick }: StageTimelinePro
                 isCompleted && 'bg-green-50 border-green-200 hover:bg-green-100',
                 breachedFlag && 'bg-red-50 border-red-200 hover:bg-red-100',
                 isCurrent && !isCompleted && !breachedFlag && 'bg-blue-50 border-blue-300 ring-1 ring-blue-200',
-                status === 'pending' && !isCurrent && 'bg-white border-slate-200 hover:bg-slate-50',
+                status === 'pending' && !isCurrent && 'bg-[#0c0c0c] border-slate-200 hover:bg-white/[0.04]',
               )}
               aria-label={`${def.stage_name} — ${status}`}
             >
@@ -43,8 +43,8 @@ export default function StageTimeline({ stages, onStageClick }: StageTimelinePro
                   'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border',
                   isCompleted && 'bg-green-600 text-white border-green-600',
                   breachedFlag && 'bg-red-600 text-white border-red-600',
-                  isCurrent && !isCompleted && !breachedFlag && 'bg-[#0F172A] text-white border-[#0F172A]',
-                  status === 'pending' && !isCurrent && 'bg-white text-slate-500 border-slate-300',
+                  isCurrent && !isCompleted && !breachedFlag && 'bg-white text-black border-white',
+                  status === 'pending' && !isCurrent && 'bg-[#0c0c0c] text-slate-500 border-slate-300',
                 )}
               >
                 {isCompleted ? <Check size={14} /> : breachedFlag ? <AlertTriangle size={14} /> : def.stage_number}
@@ -73,7 +73,7 @@ export default function StageTimeline({ stages, onStageClick }: StageTimelinePro
       {/* Progress bar */}
       <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2">
         <div
-          className="h-full bg-[#0F172A] transition-all"
+          className="h-full bg-white transition-all"
           style={{ width: `${(stages.filter((s) => s.status === 'completed').length / STAGES.length) * 100}%` }}
         />
       </div>

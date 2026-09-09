@@ -157,10 +157,10 @@ export default function Parcels() {
               setPage(1);
             }}
             placeholder="Search parcel number or owner…"
-            className="w-full h-10 pl-9 pr-3 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1]"
+            className="w-full h-10 pl-9 pr-3 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8]"
           />
         </div>
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-10 px-3 border border-slate-300 rounded-lg text-sm bg-white cursor-pointer">
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-10 px-3 border border-slate-300 rounded-lg text-sm bg-[#0c0c0c] cursor-pointer">
           <option value="all">All status</option>
           <option value="identified">Identified</option>
           <option value="notified">Notified</option>
@@ -168,7 +168,7 @@ export default function Parcels() {
           <option value="acquired">Acquired</option>
           <option value="disputed">Disputed</option>
         </select>
-        <select value={filterRisk} onChange={(e) => setFilterRisk(e.target.value)} className="h-10 px-3 border border-slate-300 rounded-lg text-sm bg-white cursor-pointer">
+        <select value={filterRisk} onChange={(e) => setFilterRisk(e.target.value)} className="h-10 px-3 border border-slate-300 rounded-lg text-sm bg-[#0c0c0c] cursor-pointer">
           <option value="all">All risk</option>
           <option value="low">Low</option>
           <option value="medium">Medium</option>
@@ -176,7 +176,7 @@ export default function Parcels() {
           <option value="critical">Critical</option>
         </select>
         <label
-          className={`h-10 px-3 border border-slate-300 rounded-lg text-sm flex items-center gap-1 ${projectId ? 'bg-white cursor-pointer hover:bg-slate-50' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+          className={`h-10 px-3 border border-slate-300 rounded-lg text-sm flex items-center gap-1 ${projectId ? 'bg-[#0c0c0c] cursor-pointer hover:bg-white/[0.04]' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
           title={projectId ? undefined : 'Select a project first'}
         >
           <Upload size={14} /> Bulk CSV
@@ -190,7 +190,7 @@ export default function Parcels() {
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`px-3 h-10 text-sm font-medium cursor-pointer ${view === v ? 'bg-[#0F172A] text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+              className={`px-3 h-10 text-sm font-medium cursor-pointer ${view === v ? 'bg-white text-black' : 'bg-[#0c0c0c] text-slate-600 hover:bg-white/[0.04]'}`}
             >
               {v === 'table' ? 'Table' : 'Board'}
             </button>
@@ -200,14 +200,14 @@ export default function Parcels() {
 
       {/* Board view */}
       {view === 'board' ? (
-        <div className="bg-white border border-slate-200 rounded-xl p-3">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-3">
           <StageBoard projectId={projectId ?? undefined} />
         </div>
       ) : (
       <>
       {/* Middle: Table left + Map right */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-3">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-3">
           {isLoading ? (
             <div className="py-12 text-center text-sm text-slate-500">Loading parcels…</div>
           ) : (
@@ -257,7 +257,7 @@ export default function Parcels() {
           )}
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-3">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-3">
           <h3 className="text-sm font-semibold text-slate-900 mb-2 flex items-center gap-1">
             <MapPin size={14} /> {selected ? `Location: ${selected.parcel_number}` : 'Select a parcel to locate'}
           </h3>
@@ -273,13 +273,13 @@ export default function Parcels() {
 
       {/* Bottom: Detail tabs */}
       {selected && (
-        <div className="bg-white border border-slate-200 rounded-xl">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl">
           <div className="flex flex-wrap gap-1 p-2 border-b border-slate-100">
             {TABS.map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer ${tab === t ? 'bg-[#0F172A] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer ${tab === t ? 'bg-white text-black' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
               >
                 {t}
               </button>

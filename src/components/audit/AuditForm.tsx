@@ -67,14 +67,14 @@ export default function AuditForm({ parcelId, onSuccess }: AuditFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+    <form onSubmit={handleSubmit} className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-5 space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Audit type</label>
           <select
             value={auditType}
             onChange={(e) => setAuditType(e.target.value as AuditLog['audit_type'])}
-            className="w-full h-11 px-3 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0369A1] cursor-pointer"
+            className="w-full h-11 px-3 border border-slate-300 rounded-md text-sm bg-[#0c0c0c] focus:outline-none focus:ring-2 focus:ring-[#38bdf8] cursor-pointer"
           >
             <option value="satellite">Satellite</option>
             <option value="field">Field</option>
@@ -86,7 +86,7 @@ export default function AuditForm({ parcelId, onSuccess }: AuditFormProps) {
           <select
             value={severity}
             onChange={(e) => setSeverity(e.target.value as AuditLog['severity'])}
-            className="w-full h-11 px-3 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0369A1] cursor-pointer"
+            className="w-full h-11 px-3 border border-slate-300 rounded-md text-sm bg-[#0c0c0c] focus:outline-none focus:ring-2 focus:ring-[#38bdf8] cursor-pointer"
           >
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -119,13 +119,13 @@ export default function AuditForm({ parcelId, onSuccess }: AuditFormProps) {
           value={finding}
           onChange={(e) => setFinding(e.target.value)}
           placeholder="Describe finding… e.g., encroachment detected via satellite"
-          className="w-full min-h-20 px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1]"
+          className="w-full min-h-20 px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8]"
         />
       </div>
 
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Evidence image</label>
-        <label className="flex items-center gap-2 h-11 px-3 border border-dashed border-slate-300 rounded-md text-sm cursor-pointer hover:bg-slate-50">
+        <label className="flex items-center gap-2 h-11 px-3 border border-dashed border-slate-300 rounded-md text-sm cursor-pointer hover:bg-white/[0.04]">
           <Upload size={16} /> {imageFile ? imageFile.name : 'Click to upload evidence'}
           <input type="file" accept="image/*" className="hidden" onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
         </label>

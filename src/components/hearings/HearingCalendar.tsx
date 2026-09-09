@@ -31,7 +31,7 @@ export default function HearingCalendar({ onSelect }: HearingCalendarProps) {
   const days = Object.keys(grouped).sort();
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
+    <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4 space-y-4">
       <div className="flex flex-wrap items-center gap-2 justify-between">
         <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
           <Calendar size={16} /> Hearing Calendar
@@ -41,12 +41,12 @@ export default function HearingCalendar({ onSelect }: HearingCalendarProps) {
             type="month"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className="h-8 px-2 border border-slate-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-[#0369A1]"
+            className="h-8 px-2 border border-slate-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-[#38bdf8]"
           />
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="h-8 px-2 border border-slate-300 rounded-md text-xs bg-white cursor-pointer"
+            className="h-8 px-2 border border-slate-300 rounded-md text-xs bg-[#0c0c0c] cursor-pointer"
             aria-label="Filter by type"
           >
             <option value="all">All types</option>
@@ -75,7 +75,7 @@ export default function HearingCalendar({ onSelect }: HearingCalendarProps) {
                   <button
                     key={h.id}
                     onClick={() => onSelect?.(h)}
-                    className="w-full text-left border border-slate-200 rounded-lg p-2.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                    className="w-full text-left border border-slate-200 rounded-lg p-2.5 hover:bg-white/[0.04] flex items-center gap-2 cursor-pointer"
                   >
                     <span className={`px-2 py-1 rounded-full text-xs font-medium border ${TYPE_COLOR[h.type] ?? 'bg-slate-100'}`}>{h.type}</span>
                     <span className="text-xs text-slate-600 truncate flex-1">{new Date(h.hearing_date).toLocaleTimeString()} • {h.parcel_id.slice(0, 8)} • {h.outcome ? h.outcome.slice(0, 40) : 'No outcome yet'}</span>

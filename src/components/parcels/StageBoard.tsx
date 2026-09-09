@@ -115,14 +115,14 @@ export default function StageBoard({ projectId }: StageBoardProps) {
                   handleDrop(col.stageNumber);
                 }}
                 className={`w-52 shrink-0 rounded-lg border p-2 transition-colors ${
-                  isTarget ? 'border-[#0369A1] bg-blue-50 border-dashed' : 'border-slate-200 bg-slate-50'
+                  isTarget ? 'border-[#38bdf8] bg-blue-50 border-dashed' : 'border-slate-200 bg-slate-50'
                 } ${editable ? '' : 'opacity-90'}`}
               >
                 <div className="flex items-center justify-between mb-2 px-1">
                   <span className="text-xs font-semibold text-slate-700 leading-tight">
                     {col.stageNumber}. {def?.stage_name}
                   </span>
-                  <span className="text-[10px] text-slate-400 bg-white border border-slate-200 rounded px-1">{col.parcels.length}</span>
+                  <span className="text-[10px] text-slate-400 bg-[#0c0c0c] border border-slate-200 rounded px-1">{col.parcels.length}</span>
                 </div>
                 <div className="space-y-1.5 min-h-16">
                   {col.parcels.map((p) => (
@@ -137,7 +137,7 @@ export default function StageBoard({ projectId }: StageBoardProps) {
                         setDragParcelId(null);
                         setDropTarget(null);
                       }}
-                      className={`bg-white border border-slate-200 rounded-md p-2 shadow-sm ${editable ? 'cursor-grab active:cursor-grabbing hover:border-[#0369A1]' : 'cursor-default'}`}
+                      className={`bg-[#0c0c0c] border border-slate-200 rounded-md p-2 shadow-sm ${editable ? 'cursor-grab active:cursor-grabbing hover:border-[#38bdf8]' : 'cursor-default'}`}
                     >
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-xs font-medium text-slate-900 truncate">{p.parcel_number}</span>

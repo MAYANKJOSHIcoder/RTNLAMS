@@ -5,7 +5,7 @@ interface StagePipelineProps {
   countsByStage: Record<number, number>;
 }
 
-const COLORS = ['#0F172A', '#1e293b', '#334155', '#475569', '#64748b', '#0369A1', '#0284c7', '#0ea5e9', '#22c55e', '#16a34a', '#15803d', '#166534'];
+  const COLORS = ['#ffffff', '#e5e5e5', '#cccccc', '#a6a6a6', '#8f8f8f', '#7d7d7d', '#38bdf8', '#7dd3fc', '#0ea5e9', '#00d294', '#16a34a', '#15803d'];
 
 export default function StagePipeline({ countsByStage }: StagePipelineProps) {
   const data = STAGES.map((s) => ({
@@ -15,13 +15,13 @@ export default function StagePipeline({ countsByStage }: StagePipelineProps) {
   }));
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4">
+    <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4">
       <h3 className="text-sm font-semibold text-slate-900 mb-3">Stage Pipeline (parcels per stage)</h3>
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={data} layout="vertical" margin={{ left: 40, right: 16, top: 4, bottom: 4 }}>
-          <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-          <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 10 }} />
-          <Tooltip formatter={(v: unknown) => String(v)} />
+          <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#8f8f8f' }} stroke="#ffffff1a" />
+          <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 10, fill: '#8f8f8f' }} stroke="#ffffff1a" />
+          <Tooltip formatter={(v: unknown) => String(v)} contentStyle={{ background: '#0c0c0c', border: '1px solid #ffffff1a', borderRadius: 8, color: '#ededed' }} cursor={{ fill: '#ffffff09' }} />
           <Bar dataKey="count" radius={[0, 6, 6, 0]}>
             {data.map((_, i) => (
               <Cell key={i} fill={COLORS[i % COLORS.length]} />

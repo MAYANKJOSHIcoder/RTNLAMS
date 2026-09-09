@@ -77,7 +77,7 @@ export default function HearingForm({ parcelId, onSuccess }: HearingFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+    <form onSubmit={handleSubmit} className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-5 space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
           <label htmlFor="hearingDate" className="block text-sm font-medium text-slate-700 mb-1">
@@ -89,7 +89,7 @@ export default function HearingForm({ parcelId, onSuccess }: HearingFormProps) {
             required
             value={hearingDate}
             onChange={(e) => setHearingDate(e.target.value)}
-            className="w-full h-11 px-3 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1]"
+            className="w-full h-11 px-3 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8]"
           />
         </div>
         <div>
@@ -100,7 +100,7 @@ export default function HearingForm({ parcelId, onSuccess }: HearingFormProps) {
             id="hearingType"
             value={type}
             onChange={(e) => setType(e.target.value as Hearing['type'])}
-            className="w-full h-11 px-3 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0369A1] cursor-pointer"
+            className="w-full h-11 px-3 border border-slate-300 rounded-md text-sm bg-[#0c0c0c] focus:outline-none focus:ring-2 focus:ring-[#38bdf8] cursor-pointer"
           >
             <option value="objection">Objection</option>
             <option value="valuation">Valuation</option>
@@ -132,13 +132,13 @@ export default function HearingForm({ parcelId, onSuccess }: HearingFormProps) {
                 placeholder="Name"
                 value={a.name}
                 onChange={(e) => handleAttendeeChange(i, 'name', e.target.value)}
-                className="flex-1 h-9 px-3 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1]"
+                className="flex-1 h-9 px-3 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8]"
               />
               <input
                 placeholder="Role"
                 value={a.role}
                 onChange={(e) => handleAttendeeChange(i, 'role', e.target.value)}
-                className="flex-1 h-9 px-3 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1]"
+                className="flex-1 h-9 px-3 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8]"
               />
               <Button type="button" variant="ghost" size="sm" onClick={() => setAttendees((p) => p.filter((_, idx) => idx !== i))} aria-label="Remove attendee">
                 <Trash2 size={14} />
@@ -157,7 +157,7 @@ export default function HearingForm({ parcelId, onSuccess }: HearingFormProps) {
           value={outcome}
           onChange={(e) => setOutcome(e.target.value)}
           placeholder="Hearing outcome summary…"
-          className="w-full min-h-20 px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1]"
+          className="w-full min-h-20 px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8]"
         />
       </div>
 
@@ -170,13 +170,13 @@ export default function HearingForm({ parcelId, onSuccess }: HearingFormProps) {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Additional notes…"
-          className="w-full min-h-16 px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1]"
+          className="w-full min-h-16 px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8]"
         />
       </div>
 
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Hearing minutes (PDF)</label>
-        <label className="flex items-center gap-2 h-11 px-3 border border-dashed border-slate-300 rounded-md text-sm cursor-pointer hover:bg-slate-50">
+        <label className="flex items-center gap-2 h-11 px-3 border border-dashed border-slate-300 rounded-md text-sm cursor-pointer hover:bg-white/[0.04]">
           <Upload size={16} /> {minutesFile ? minutesFile.name : 'Click to upload minutes'}
           <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(e) => setMinutesFile(e.target.files?.[0] ?? null)} />
         </label>

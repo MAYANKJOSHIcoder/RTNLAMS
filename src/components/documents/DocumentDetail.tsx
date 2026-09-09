@@ -157,7 +157,7 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
             <h4 className="font-medium text-slate-900 mb-2 text-sm">Preview</h4>
             {document.file_url ? (
               signedUrl ? (
-                <iframe src={signedUrl} title="Document preview" className="w-full h-[420px] rounded-lg border border-slate-200 bg-white" />
+                <iframe src={signedUrl} title="Document preview" className="w-full h-[420px] rounded-lg border border-slate-200 bg-[#0c0c0c]" />
               ) : (
                 <div className="h-[420px] flex items-center justify-center text-sm text-slate-400 border border-slate-200 rounded-lg">Loading preview…</div>
               )
@@ -185,7 +185,7 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
                       id={`f-${key}`}
                       value={value}
                       onChange={(e) => setFields((p) => ({ ...p, [key]: e.target.value }))}
-                      className="flex-1 min-w-0 h-8 px-2 border border-slate-300 rounded text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#0369A1]"
+                      className="flex-1 min-w-0 h-8 px-2 border border-slate-300 rounded text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#38bdf8]"
                     />
                     {confidenceBadge(perFieldConf[key] ?? perFieldConf[key.replace(/_/g, ' ')] ?? null)}
                   </div>
@@ -231,7 +231,7 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
             <select
               value={reextractType}
               onChange={(e) => setReextractType(e.target.value as PromptType)}
-              className="h-10 px-2 border border-slate-300 rounded-md text-sm bg-white cursor-pointer"
+              className="h-10 px-2 border border-slate-300 rounded-md text-sm bg-[#0c0c0c] cursor-pointer"
               aria-label="Re-extract document type"
             >
               {REEXTRACT_TYPES.map((t) => (

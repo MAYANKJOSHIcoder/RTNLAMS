@@ -39,7 +39,7 @@ export default function CompensationForm({ award, parcel, onSave, saving }: Comp
   const nextStatus = award ? nextPaymentStatus(award.payment_status) : null;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+    <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Calculator size={18} className="text-slate-600" />
         <h3 className="text-sm font-semibold text-slate-900">Compensation Calculator</h3>

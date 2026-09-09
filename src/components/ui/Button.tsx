@@ -5,8 +5,8 @@ export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: 'bg-[#0F172A] text-white hover:bg-[#1e293b] focus:ring-[#0369A1]',
-  secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus:ring-[#0369A1]',
+  primary: 'bg-white text-black hover:bg-neutral-200 focus:ring-[#38bdf8]',
+  secondary: 'bg-[#0c0c0c] text-slate-700 border border-slate-300 hover:bg-white/[0.04] focus:ring-[#38bdf8]',
   danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
   ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 focus:ring-slate-300',
 };

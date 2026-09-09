@@ -18,9 +18,9 @@ const ICONS: Record<string, typeof FileText> = {
 };
 
 export default function ActivityFeed({ items }: { items: ActivityItem[] }) {
-  if (!items.length) return <div className="bg-white border border-slate-200 rounded-xl p-6 text-center text-sm text-slate-500">No recent activity</div>;
+  if (!items.length) return <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-6 text-center text-sm text-slate-500">No recent activity</div>;
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4">
+    <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4">
       <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
         <Clock size={14} /> Recent Activity
       </h3>

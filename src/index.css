@@ -1,20 +1,108 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #1e3a5f;
-  --color-primary-dark: #162d4a;
-  --color-primary-light: #2c5282;
-  --color-accent: #d69e2e;
-  --color-success: #276749;
-  --color-warning: #975a16;
-  --color-danger: #9b2c2c;
-  --color-background: #f7fafc;
-  --color-surface: #ffffff;
-  --color-text: #1a202c;
-  --color-text-muted: #4a5568;
-  --color-border: #e2e8f0;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, monospace;
+  --font-display: 'Sora', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  --color-background: #000000;
+  --color-surface: #0c0c0c;
+  --color-text: #ededed;
+  --color-text-muted: #8f8f8f;
+  --color-border: #ffffff1a;
+  --color-primary: #38bdf8;
+  --color-primary-dark: #0284c7;
+  --color-primary-light: #7dd3fc;
+  --color-accent: #fbbf24;
+  --color-success: #00d294;
+  --color-warning: #fbbf24;
+  --color-danger: #fb2c36;
+
+  /* Slate scale remapped to inverted dark ink scale — flips legacy light classes app-wide */
+  --color-slate-50: #0a0a0a;
+  --color-slate-100: #111111;
+  --color-slate-200: #1c1c1c;
+  --color-slate-300: #2e2e2e;
+  --color-slate-400: #8f8f8f;
+  --color-slate-500: #7d7d7d;
+  --color-slate-600: #a6a6a6;
+  --color-slate-700: #cccccc;
+  --color-slate-800: #e5e5e5;
+  --color-slate-900: #ededed;
+  --color-slate-950: #f5f5f5;
+
+  /* Status chips remapped to dark glass (netlify accent palette) */
+  --color-green-50: #00d29414;
+  --color-green-100: #00d2941f;
+  --color-green-200: #00d29440;
+  --color-green-300: #00d29466;
+  --color-green-400: #00d294;
+  --color-green-500: #00d294;
+  --color-green-600: #00d294;
+  --color-green-700: #00d294;
+  --color-green-800: #66e6bd;
+  --color-green-900: #a5f0d8;
+  --color-blue-50: #38bdf814;
+  --color-blue-100: #38bdf81f;
+  --color-blue-200: #38bdf840;
+  --color-blue-300: #38bdf866;
+  --color-blue-400: #38bdf8;
+  --color-blue-500: #38bdf8;
+  --color-blue-600: #38bdf8;
+  --color-blue-700: #38bdf8;
+  --color-blue-800: #7dd3fc;
+  --color-blue-900: #bae6fd;
+  --color-red-50: #fb2c3614;
+  --color-red-100: #fb2c361f;
+  --color-red-200: #fb2c3640;
+  --color-red-500: #fb2c36;
+  --color-red-600: #fb2c36;
+  --color-red-700: #fb2c36;
+  --color-red-800: #fb7185;
+  --color-red-900: #fda4af;
+  --color-amber-50: #fbbf2414;
+  --color-amber-100: #fbbf241f;
+  --color-amber-200: #fbbf2440;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #fbbf24;
+  --color-amber-600: #fbbf24;
+  --color-amber-700: #fbbf24;
+  --color-amber-800: #fcd34d;
+  --color-amber-900: #fde68a;
+  --color-orange-50: #fb923c14;
+  --color-orange-100: #fb923c1f;
+  --color-orange-200: #fb923c40;
+  --color-orange-500: #fb923c;
+  --color-orange-600: #fb923c;
+  --color-orange-700: #fb923c;
+  --color-orange-800: #fdba74;
+  --color-orange-900: #fed7aa;
+  --color-yellow-50: #facc1514;
+  --color-yellow-100: #facc151f;
+  --color-yellow-200: #facc1540;
+  --color-yellow-500: #facc15;
+  --color-yellow-600: #facc15;
+  --color-yellow-700: #facc15;
+  --color-yellow-800: #fde047;
+  --color-yellow-900: #fef08a;
+  --color-purple-50: #c084fc14;
+  --color-purple-100: #c084fc1f;
+  --color-purple-200: #c084fc40;
+  --color-purple-500: #c084fc;
+  --color-purple-600: #c084fc;
+  --color-purple-700: #c084fc;
+  --color-purple-800: #d8b4fe;
+  --color-purple-900: #e9d5ff;
+}
+
+* {
+  border-color: var(--color-border);
+  --tw-ring-offset-color: #000;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 56px;
 }
 
 * {
@@ -27,8 +115,80 @@ body {
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizelegibility;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Netlify-theme effects */
+.grid-overlay {
+  background-image: linear-gradient(90deg, #ffffff09 1px, transparent 1px),
+    linear-gradient(#ffffff09 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.card {
+  border: 1px solid var(--color-border);
+  background: #0c0c0c;
+  border-radius: 16px;
+  box-shadow: inset 0 1px 0 0 #ffffff0a, 0 24px 48px -28px #000000e6;
+}
+
+.card-hover {
+  transition: transform 0.18s, border-color 0.18s, background 0.18s;
+}
+
+.card-hover:hover {
+  border-color: #fff3;
+  background: #111111;
+  transform: translateY(-2px);
+}
+
+.live-dot {
+  animation: pulse-ring 2s infinite;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 #fff6; }
+  70% { box-shadow: 0 0 0 7px #fff0; }
+  100% { box-shadow: 0 0 0 0 #fff0; }
+}
+
+.fade-up {
+  animation: fade-up 0.5s both;
+}
+
+@keyframes fade-up {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.tabnum {
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ffffff29 padding-box content-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ffffff47 padding-box content-box;
+}
+
+::selection {
+  background: #ffffff33;
+  color: #fff;
 }

@@ -31,7 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#F8FAFC] text-center">
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-black text-center">
           <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-3">
             <AlertTriangle size={24} />
           </div>
@@ -40,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
             The application encountered an unexpected error. This has been logged. You can try again or reload the page.
           </p>
           {import.meta.env.DEV && this.state.error && (
-            <pre className="text-xs text-left bg-slate-900 text-slate-100 rounded-lg p-3 mt-4 max-w-2xl overflow-auto w-full">{this.state.error.message}</pre>
+            <pre className="text-xs text-left bg-[#0c0c0c] text-slate-300 border border-white/10 rounded-lg p-3 mt-4 max-w-2xl overflow-auto w-full">{this.state.error.message}</pre>
           )}
           <div className="flex gap-2 mt-6">
             <Button onClick={this.handleReset} leftIcon={<RefreshCw size={16} />}>

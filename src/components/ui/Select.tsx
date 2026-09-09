@@ -27,7 +27,7 @@ export function Select({ label, error, options, placeholder = 'Select…', class
         aria-invalid={!!error}
         aria-describedby={error ? `${selectId}-error` : undefined}
         className={cn(
-          'w-full h-11 px-3 border rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0369A1] focus:border-[#0369A1] cursor-pointer',
+          'w-full h-11 px-3 border rounded-md text-sm bg-[#0c0c0c] focus:outline-none focus:ring-2 focus:ring-[#38bdf8] focus:border-[#38bdf8] cursor-pointer',
           error ? 'border-red-500' : 'border-slate-300',
           className,
         )}

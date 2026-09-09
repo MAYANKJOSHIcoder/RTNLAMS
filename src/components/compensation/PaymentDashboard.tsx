@@ -20,24 +20,24 @@ export default function PaymentDashboard({ awards, onAdvancePayment }: PaymentDa
   const compliance = awards.length ? Math.round(((awards.length - breaches) / awards.length) * 100) : 100;
 
   const pieData = [
-    { name: 'Paid', value: totalPaid, color: '#22C55E' },
-    { name: 'Pending', value: Math.max(0, totalAwarded - totalPaid), color: '#F59E0B' },
+    { name: 'Paid', value: totalPaid, color: '#00d294' },
+    { name: 'Pending', value: Math.max(0, totalAwarded - totalPaid), color: '#fbbf24' },
   ];
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4">
           <div className="text-xs text-slate-500">Total Awarded</div>
           <div className="text-xl font-bold text-slate-900">₹{totalAwarded.toLocaleString('en-IN')}</div>
           <div className="text-xs text-slate-500">{awards.length} awards</div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4">
           <div className="text-xs text-slate-500">Total Paid</div>
           <div className="text-xl font-bold text-green-700">₹{totalPaid.toLocaleString('en-IN')}</div>
           <div className="text-xs text-slate-500">{compliance}% SLA compliance</div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4">
           <div className="text-xs text-slate-500">Pending Payments</div>
           <div className="text-xl font-bold text-amber-600">{pending.length}</div>
           <div className="text-xs text-red-600">{breaches} breached (30d SLA)</div>
@@ -45,7 +45,7 @@ export default function PaymentDashboard({ awards, onAdvancePayment }: PaymentDa
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4">
           <h3 className="text-sm font-semibold text-slate-900 mb-2">Paid vs Pending</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
@@ -54,8 +54,8 @@ export default function PaymentDashboard({ awards, onAdvancePayment }: PaymentDa
                   <Cell key={e.name} fill={e.color} />
                 ))}
               </Pie>
-              <Tooltip formatter={(v: unknown) => `₹${Number(v ?? 0).toLocaleString('en-IN')}`} />
-              <Legend />
+              <Tooltip formatter={(v: unknown) => `₹${Number(v ?? 0).toLocaleString('en-IN')}`} contentStyle={{ background: '#0c0c0c', border: '1px solid #ffffff1a', borderRadius: 8, color: '#ededed' }} />
+              <Legend wrapperStyle={{ color: '#8f8f8f', fontSize: 12 }} formatter={(value) => <span style={{ color: '#8f8f8f' }}>{value}</span>} />
             </PieChart>
           </ResponsiveContainer>
           {/* SLA gauge (simple bar) */}
@@ -64,13 +64,13 @@ export default function PaymentDashboard({ awards, onAdvancePayment }: PaymentDa
               <span>SLA Compliance</span>
               <span>{compliance}%</span>
             </div>
-            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
               <div className={`h-full ${compliance >= 80 ? 'bg-green-600' : compliance >= 60 ? 'bg-amber-500' : 'bg-red-600'}`} style={{ width: `${compliance}%` }} />
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4">
           <h3 className="text-sm font-semibold text-slate-900 mb-2">Payment History</h3>
           <div className="overflow-auto max-h-[240px] border border-slate-100 rounded-lg">
             <table className="w-full text-xs">
@@ -92,7 +92,7 @@ export default function PaymentDashboard({ awards, onAdvancePayment }: PaymentDa
                   </tr>
                 ) : (
                   awards.map((a) => (
-                    <tr key={a.id} className="hover:bg-slate-50">
+                    <tr key={a.id} className="hover:bg-white/[0.04]">
                       <td className="px-3 py-2 font-mono text-slate-700">{a.parcel_id.slice(0, 8)}</td>
                       <td className="px-3 py-2 text-right">₹{Number(a.awarded_amount).toLocaleString('en-IN')}</td>
                       <td className="px-3 py-2">

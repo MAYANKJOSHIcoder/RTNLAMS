@@ -11,7 +11,7 @@ const sizes = { sm: 'w-4 h-4 border-2', md: 'w-6 h-6 border-2', lg: 'w-8 h-8 bor
 export function Spinner({ size = 'md', className, label = 'Loading' }: SpinnerProps) {
   return (
     <span role="status" aria-label={label} className={cn('inline-flex items-center justify-center', className)}>
-      <span className={cn('border-slate-300 border-t-[#0F172A] rounded-full animate-spin', sizes[size])} aria-hidden />
+      <span className={cn('border-slate-300 border-t-white rounded-full animate-spin', sizes[size])} aria-hidden />
       <span className="sr-only">{label}</span>
     </span>
   );

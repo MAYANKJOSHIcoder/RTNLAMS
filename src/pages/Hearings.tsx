@@ -25,7 +25,7 @@ export default function Hearings() {
       <HearingCalendar onSelect={(h) => setSelectedHearing(h)} />
 
       {selectedHearing && !selectedId && (
-        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">Hearing Details</h2>
             <button onClick={() => setSelectedHearing(null)} className="text-xs text-slate-500 hover:text-slate-700 cursor-pointer">Close</button>
@@ -49,7 +49,7 @@ export default function Hearings() {
       )}
 
       {!selectedId && (
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4">
           <h2 className="text-sm font-semibold text-slate-900 mb-3">All Hearings</h2>
           {isLoading ? (
             <div className="py-8 text-center text-sm text-slate-500">Loading…</div>

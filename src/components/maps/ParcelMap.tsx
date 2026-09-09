@@ -88,14 +88,14 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
       style: {
         version: 8,
         sources: {
-          osm: {
+          dark: {
             type: 'raster',
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', 'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', 'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
             tileSize: 256,
-            attribution: '© OpenStreetMap',
+            attribution: '© OpenStreetMap contributors © CARTO',
           },
         },
-        layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+        layers: [{ id: 'dark', type: 'raster', source: 'dark' }],
       },
       center: INDIA_CENTER,
       zoom: 4,
@@ -131,7 +131,7 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
         type: 'line',
         source: 'parcels',
         paint: {
-          'line-color': '#0F172A',
+              'line-color': '#3a3a3a',
           'line-width': 1.5,
           'line-opacity': 0.9,
         },
@@ -142,7 +142,7 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
         id: 'parcels-highlight',
         type: 'line',
         source: 'parcels',
-        paint: { 'line-color': '#0369A1', 'line-width': 3 },
+        paint: { 'line-color': '#38bdf8', 'line-width': 3 },
         filter: ['==', ['get', 'parcel_number'], ''],
       });
 
@@ -288,7 +288,7 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
   }, [corridorMode, corridorCount]);
 
   return (
-    <div className="relative border border-slate-200 rounded-xl overflow-hidden bg-white" style={{ height }}>
+    <div className="relative border border-slate-200 rounded-xl overflow-hidden bg-[#0c0c0c]" style={{ height }}>
       <div ref={containerRef} className="w-full h-full" aria-label="Parcel map" role="application" />
       <MapControls
         filter={filter}
@@ -307,7 +307,7 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
       />
       {!filtered.features.length && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/60 pointer-events-none">
-          <span className="text-sm text-slate-500 bg-white border border-slate-200 rounded-full px-3 py-1 shadow-sm">No parcels match filters</span>
+          <span className="text-sm text-slate-500 bg-[#0c0c0c] border border-slate-200 rounded-full px-3 py-1 shadow-sm">No parcels match filters</span>
         </div>
       )}
     </div>

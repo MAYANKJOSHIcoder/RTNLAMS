@@ -42,14 +42,14 @@ export function Table<T extends Record<string, unknown>>({ columns, data, classN
 
   if (data.length === 0) {
     return (
-      <div className="border border-slate-200 rounded-lg p-8 text-center text-sm text-slate-500 bg-white">
+      <div className="border border-slate-200 rounded-lg p-8 text-center text-sm text-slate-500 bg-[#0c0c0c]">
         {emptyMessage}
       </div>
     );
   }
 
   return (
-    <div className={cn('border border-slate-200 rounded-lg overflow-hidden bg-white', className)}>
+    <div className={cn('border border-slate-200 rounded-lg overflow-hidden bg-[#0c0c0c]', className)}>
       <div className="overflow-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200">
@@ -86,7 +86,7 @@ export function Table<T extends Record<string, unknown>>({ columns, data, classN
               <tr
                 key={i}
                 onClick={() => onRowClick?.(row)}
-                className={cn(onRowClick && 'cursor-pointer hover:bg-slate-50')}
+                className={cn(onRowClick && 'cursor-pointer hover:bg-white/[0.04]')}
               >
                 {columns.map((col) => (
                   <td key={col.key} className="px-4 py-3 text-slate-700">

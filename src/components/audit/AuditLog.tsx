@@ -53,27 +53,27 @@ export default function AuditLogView({ parcelId }: AuditLogProps) {
   if (isLoading) return <div className="py-8 text-center text-sm text-slate-500">Loading audits…</div>;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
+    <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4 space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
           <ShieldCheck size={16} /> Audit Trail
         </h3>
         <span className="text-xs text-slate-500">{filtered.length} of {audits.length}</span>
         <div className="ml-auto flex flex-wrap gap-1">
-          <select value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)} className="h-8 px-2 border border-slate-200 rounded-md text-xs bg-white cursor-pointer">
+          <select value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)} className="h-8 px-2 border border-slate-200 rounded-md text-xs bg-[#0c0c0c] cursor-pointer">
             <option value="all">All severity</option>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
             <option value="critical">Critical</option>
           </select>
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="h-8 px-2 border border-slate-200 rounded-md text-xs bg-white cursor-pointer">
+          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="h-8 px-2 border border-slate-200 rounded-md text-xs bg-[#0c0c0c] cursor-pointer">
             <option value="all">All types</option>
             <option value="satellite">Satellite</option>
             <option value="field">Field</option>
             <option value="compliance">Compliance</option>
           </select>
-          <select value={filterResolved} onChange={(e) => setFilterResolved(e.target.value)} className="h-8 px-2 border border-slate-200 rounded-md text-xs bg-white cursor-pointer">
+          <select value={filterResolved} onChange={(e) => setFilterResolved(e.target.value)} className="h-8 px-2 border border-slate-200 rounded-md text-xs bg-[#0c0c0c] cursor-pointer">
             <option value="all">All</option>
             <option value="resolved">Resolved</option>
             <option value="unresolved">Unresolved</option>
@@ -86,7 +86,7 @@ export default function AuditLogView({ parcelId }: AuditLogProps) {
       ) : (
         <div className="space-y-2 max-h-[500px] overflow-auto">
           {filtered.map((a) => (
-            <div key={a.id} className="border border-slate-200 rounded-lg p-3 hover:bg-slate-50 cursor-pointer" onClick={() => setExpanded(expanded === a.id ? null : a.id)}>
+            <div key={a.id} className="border border-slate-200 rounded-lg p-3 hover:bg-white/[0.04] cursor-pointer" onClick={() => setExpanded(expanded === a.id ? null : a.id)}>
               <div className="flex items-start gap-3">
                 <span className={`px-2 py-1 rounded-full text-xs font-medium border ${SEVERITY_COLOR[a.severity] ?? 'bg-slate-100'}`}>{a.severity}</span>
                 <span className="px-2 py-1 bg-slate-100 border border-slate-200 rounded-full text-xs">{a.audit_type}</span>
@@ -117,7 +117,7 @@ export default function AuditLogView({ parcelId }: AuditLogProps) {
                         e.stopPropagation();
                         updateAudit.mutate({ id: a.id, resolved: !a.resolved, resolved_at: !a.resolved ? new Date().toISOString() : null } as never);
                       }}
-                      className="flex items-center gap-1 text-xs font-medium text-[#0369A1] hover:underline cursor-pointer"
+                      className="flex items-center gap-1 text-xs font-medium text-[#38bdf8] hover:underline cursor-pointer"
                     >
                       <CheckCircle2 size={14} /> {a.resolved ? 'Reopen finding' : 'Mark resolved'}
                     </button>

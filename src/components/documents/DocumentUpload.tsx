@@ -79,7 +79,7 @@ export default function DocumentUpload({ parcelId, onUploaded }: DocumentUploadP
         }}
         onClick={() => inputRef.current?.click()}
         className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-          dragOver ? 'border-[#0369A1] bg-blue-50' : 'border-slate-200 hover:border-slate-300 bg-white'
+          dragOver ? 'border-[#38bdf8] bg-blue-50' : 'border-slate-200 hover:border-slate-300 bg-[#0c0c0c]'
         }`}
         role="button"
         aria-label="Upload document"
@@ -102,7 +102,7 @@ export default function DocumentUpload({ parcelId, onUploaded }: DocumentUploadP
       </div>
 
       {file && (
-        <div className="bg-white border border-slate-200 rounded-lg p-3 flex items-center gap-3">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-lg p-3 flex items-center gap-3">
           <FileText size={18} className="text-slate-500 shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-slate-900 truncate">{file.name}</div>
@@ -131,7 +131,7 @@ export default function DocumentUpload({ parcelId, onUploaded }: DocumentUploadP
             id="docType"
             value={docType}
             onChange={(e) => setDocType(e.target.value)}
-            className="w-full h-9 px-3 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0369A1] cursor-pointer"
+            className="w-full h-9 px-3 border border-slate-300 rounded-md text-sm bg-[#0c0c0c] focus:outline-none focus:ring-2 focus:ring-[#38bdf8] cursor-pointer"
           >
             <option value="deed">Deed</option>
             <option value="survey_map">Survey Map</option>

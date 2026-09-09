@@ -34,7 +34,7 @@ export function Modal({ open, onClose, title, children, actions, className }: Mo
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div
         ref={ref}
-        className={cn('relative bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col', className)}
+        className={cn('relative bg-[#0c0c0c] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col', className)}
       >
         {title && (
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">

@@ -39,7 +39,7 @@ export default function DocumentList({ parcelId, onView }: DocumentListProps) {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="h-8 px-2 border border-slate-200 rounded-md text-xs bg-white cursor-pointer"
+          className="h-8 px-2 border border-slate-200 rounded-md text-xs bg-[#0c0c0c] cursor-pointer"
           aria-label="Filter by status"
         >
           <option value="all">All statuses</option>
@@ -52,7 +52,7 @@ export default function DocumentList({ parcelId, onView }: DocumentListProps) {
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="h-8 px-2 border border-slate-200 rounded-md text-xs bg-white cursor-pointer"
+          className="h-8 px-2 border border-slate-200 rounded-md text-xs bg-[#0c0c0c] cursor-pointer"
           aria-label="Filter by type"
         >
           <option value="all">All types</option>
@@ -63,7 +63,7 @@ export default function DocumentList({ parcelId, onView }: DocumentListProps) {
         <span className="text-xs text-slate-500 flex items-center">{filtered.length} of {docs.length} documents</span>
       </div>
 
-      <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+      <div className="border border-slate-200 rounded-lg overflow-hidden bg-[#0c0c0c]">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b">
             <tr>
@@ -76,7 +76,7 @@ export default function DocumentList({ parcelId, onView }: DocumentListProps) {
           </thead>
           <tbody className="divide-y">
             {filtered.map((d) => (
-              <tr key={d.id} className="hover:bg-slate-50">
+              <tr key={d.id} className="hover:bg-white/[0.04]">
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <FileText size={16} className="text-slate-400" />

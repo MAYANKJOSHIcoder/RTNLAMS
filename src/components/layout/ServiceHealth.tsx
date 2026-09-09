@@ -143,16 +143,16 @@ export default function ServiceHealth() {
         onClick={() => setOpen((o) => !o)}
         aria-label={`System status: ${overall}`}
         title="System status"
-        className="p-2 hover:bg-slate-700 rounded-md cursor-pointer transition-colors flex items-center gap-1.5"
+        className="p-2 hover:bg-white/10 rounded-md cursor-pointer transition-colors flex items-center gap-1.5"
       >
         <Activity size={16} className="text-slate-300" />
         <span className={`w-2.5 h-2.5 rounded-full ${DOT[overall]}`} aria-hidden />
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-lg py-1 text-slate-700 z-50">
+        <div className="absolute right-0 mt-2 w-64 bg-[#0c0c0c] border border-slate-200 rounded-lg shadow-lg py-1 text-slate-700 z-50">
           <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-900">System Status</span>
-            <button onClick={() => void runAll()} className="text-[10px] text-[#0369A1] hover:underline cursor-pointer">Re-check</button>
+            <button onClick={() => void runAll()} className="text-[10px] text-[#38bdf8] hover:underline cursor-pointer">Re-check</button>
           </div>
           {services.map((s) => (
             <div key={s.key} className="flex items-center gap-2 px-3 py-1.5 text-xs">

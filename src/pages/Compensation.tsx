@@ -46,7 +46,7 @@ export default function Compensation() {
       }} />
 
       {!selectedId && (
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4">
           <h2 className="text-sm font-semibold text-slate-900 mb-3">All Compensation Awards</h2>
           {isLoading ? (
             <div className="py-8 text-center text-sm text-slate-500">Loading…</div>

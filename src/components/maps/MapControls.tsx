@@ -35,7 +35,7 @@ export default function MapControls({
     <div className="absolute top-3 left-3 right-3 flex flex-col gap-2 pointer-events-none">
       {/* Top bar: search + filter */}
       <div className="flex flex-wrap gap-2 pointer-events-auto">
-        <div className="flex-1 min-w-48 bg-white border border-slate-200 rounded-lg shadow-sm flex items-center px-3 h-9">
+        <div className="flex-1 min-w-48 bg-[#0c0c0c] border border-slate-200 rounded-lg shadow-sm flex items-center px-3 h-9">
           <Search size={16} className="text-slate-400 mr-2 shrink-0" />
           <input
             value={search}
@@ -48,7 +48,7 @@ export default function MapControls({
         <select
           value={filter}
           onChange={(e) => onFilter(e.target.value)}
-          className="h-9 px-3 border border-slate-200 rounded-lg bg-white text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1] cursor-pointer"
+          className="h-9 px-3 border border-slate-200 rounded-lg bg-[#0c0c0c] text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8] cursor-pointer"
           aria-label="Filter by status"
         >
           <option value="all">All statuses</option>
@@ -62,17 +62,17 @@ export default function MapControls({
           <button
             onClick={onToggleCorridor}
             className={`h-9 px-3 rounded-lg shadow-sm text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors ${
-              corridorMode ? 'bg-red-600 text-white border-red-600' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              corridorMode ? 'bg-red-600 text-white border-red-600' : 'bg-[#0c0c0c] border border-slate-200 text-slate-700 hover:bg-white/[0.04]'
             }`}
             aria-label="Toggle corridor alignment drawing"
             title="Draw a project corridor: click points on the map, double-click to match parcels"
           >
             <Route size={14} /> {corridorMode ? 'Drawing… (dbl-click to finish)' : corridorCount != null ? `Corridor: ${corridorCount} hit${corridorCount === 1 ? '' : 's'}` : 'Corridor'}
           </button>
-          <button onClick={onZoomIn} aria-label="Zoom in" className="w-9 h-9 bg-white border border-slate-200 rounded-lg shadow-sm flex items-center justify-center hover:bg-slate-50 cursor-pointer">
+          <button onClick={onZoomIn} aria-label="Zoom in" className="w-9 h-9 bg-[#0c0c0c] border border-slate-200 rounded-lg shadow-sm flex items-center justify-center hover:bg-white/[0.04] cursor-pointer">
             <ZoomIn size={16} />
           </button>
-          <button onClick={onZoomOut} aria-label="Zoom out" className="w-9 h-9 bg-white border border-slate-200 rounded-lg shadow-sm flex items-center justify-center hover:bg-slate-50 cursor-pointer">
+          <button onClick={onZoomOut} aria-label="Zoom out" className="w-9 h-9 bg-[#0c0c0c] border border-slate-200 rounded-lg shadow-sm flex items-center justify-center hover:bg-white/[0.04] cursor-pointer">
             <ZoomOut size={16} />
           </button>
         </div>
@@ -80,7 +80,7 @@ export default function MapControls({
 
       {/* Bottom: legend + satellite toggle */}
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="bg-white border border-slate-200 rounded-lg shadow-sm px-3 py-2 pointer-events-auto">
+        <div className="bg-[#0c0c0c] border border-slate-200 rounded-lg shadow-sm px-3 py-2 pointer-events-auto">
           <div className="text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
             <MapPin size={12} /> Status Legend
           </div>
@@ -97,8 +97,8 @@ export default function MapControls({
           onClick={onToggleSatellite}
           className={`h-8 px-3 rounded-lg shadow-sm text-xs font-medium flex items-center gap-1.5 pointer-events-auto cursor-pointer transition-colors ${
             satelliteEnabled
-              ? 'bg-[#0F172A] text-white border-[#0F172A]'
-              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              ? 'bg-white text-black border-white'
+              : 'bg-[#0c0c0c] border border-slate-200 text-slate-700 hover:bg-white/[0.04]'
           }`}
           aria-label={satelliteEnabled ? 'Disable satellite layer' : 'Enable satellite layer'}
         >

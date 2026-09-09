@@ -33,7 +33,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col">
+    <div className="min-h-screen bg-black flex flex-col">
       <Header onMenuToggle={() => setMobileOpen(!mobileOpen)} />
       <div className="flex flex-1 min-h-0">
         <Sidebar
@@ -77,7 +77,12 @@ export default function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
-            <Toaster position="top-right" />
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                style: { background: '#0c0c0c', color: '#ededed', border: '1px solid #ffffff1a' },
+              }}
+            />
           </ProjectProvider>
         </AuthProvider>
       </BrowserRouter>

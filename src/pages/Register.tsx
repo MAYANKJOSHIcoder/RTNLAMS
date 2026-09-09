@@ -52,17 +52,17 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-[#0F172A] rounded-lg mb-3">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-black border border-white/20 rounded-lg mb-3">
             <ShieldCheck className="text-white" size={24} />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Create your account</h1>
-          <p className="text-sm text-slate-500 mt-1">National Land Acquisition System • IGDTUW</p>
+          <p className="text-sm text-slate-500 mt-1">RTNLAMS • Government of India</p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4" noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-6 shadow-sm space-y-4" noValidate>
           <div>
             <label htmlFor="full_name" className="block text-sm font-medium text-slate-700 mb-1">
               Full name <span className="text-red-600">*</span>
@@ -70,7 +70,7 @@ export default function Register() {
             <input
               id="full_name"
               placeholder="Rajesh Kumar"
-              className={`w-full h-11 px-3 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1] ${errors.full_name ? 'border-red-500' : 'border-slate-300'}`}
+              className={`w-full h-11 px-3 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8] ${errors.full_name ? 'border-red-500' : 'border-slate-300'}`}
               aria-invalid={!!errors.full_name}
               {...rhfReg('full_name')}
             />
@@ -86,7 +86,7 @@ export default function Register() {
               type="email"
               autoComplete="email"
               placeholder="rajesh@gov.in"
-              className={`w-full h-11 px-3 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1] ${errors.email ? 'border-red-500' : 'border-slate-300'}`}
+              className={`w-full h-11 px-3 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8] ${errors.email ? 'border-red-500' : 'border-slate-300'}`}
               {...rhfReg('email')}
             />
             {errors.email && <p role="alert" className="text-xs text-red-600 mt-1">{errors.email.message}</p>}
@@ -99,7 +99,7 @@ export default function Register() {
             <input
               id="cnic"
               placeholder="35202-1234567-1"
-              className={`w-full h-11 px-3 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1] ${errors.cnic ? 'border-red-500' : 'border-slate-300'}`}
+              className={`w-full h-11 px-3 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8] ${errors.cnic ? 'border-red-500' : 'border-slate-300'}`}
               aria-invalid={!!errors.cnic}
               {...rhfReg('cnic')}
             />
@@ -118,7 +118,7 @@ export default function Register() {
                   type={showPw ? 'text' : 'password'}
                   autoComplete="new-password"
                   placeholder="••••••••"
-                  className={`w-full h-11 px-3 pr-10 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1] ${errors.password ? 'border-red-500' : 'border-slate-300'}`}
+                  className={`w-full h-11 px-3 pr-10 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8] ${errors.password ? 'border-red-500' : 'border-slate-300'}`}
                   {...rhfReg('password')}
                 />
                 <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 cursor-pointer" aria-label="Toggle password">
@@ -136,7 +136,7 @@ export default function Register() {
                 type={showPw ? 'text' : 'password'}
                 autoComplete="new-password"
                 placeholder="••••••••"
-                className={`w-full h-11 px-3 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1] ${errors.confirm_password ? 'border-red-500' : 'border-slate-300'}`}
+                className={`w-full h-11 px-3 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8] ${errors.confirm_password ? 'border-red-500' : 'border-slate-300'}`}
                 {...rhfReg('confirm_password')}
               />
               {errors.confirm_password && <p role="alert" className="text-xs text-red-600 mt-1">{errors.confirm_password.message}</p>}
@@ -146,13 +146,13 @@ export default function Register() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full h-11 bg-[#0F172A] text-white rounded-md text-sm font-medium hover:bg-[#1e293b] disabled:opacity-50 flex items-center justify-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0369A1] focus:ring-offset-2"
+            className="w-full h-11 bg-white text-black rounded-md text-sm font-medium hover:bg-neutral-200 disabled:opacity-50 flex items-center justify-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#38bdf8] focus:ring-offset-2"
           >
             {isSubmitting ? 'Creating account…' : 'Create account'}
           </button>
 
           <p className="text-center text-sm text-slate-600">
-            Already have an account? <Link to="/login" className="text-[#0369A1] font-medium hover:underline">Sign in</Link>
+            Already have an account? <Link to="/login" className="text-[#38bdf8] font-medium hover:underline">Sign in</Link>
           </p>
         </form>
       </div>

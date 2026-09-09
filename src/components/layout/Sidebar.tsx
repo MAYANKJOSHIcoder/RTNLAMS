@@ -43,12 +43,12 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
       {mobileOpen && <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={onClose} aria-hidden />}
 
       <aside
-        className={`${width} bg-white border-r border-slate-200 flex flex-col transition-all duration-200 shrink-0
+        className={`${width} bg-black border-r border-white/10 flex flex-col transition-all duration-200 shrink-0
           ${mobileOpen ? 'fixed inset-y-0 left-0 z-40 lg:static' : 'hidden lg:flex'} min-h-[calc(100vh-3.5rem)]`}
         aria-label="Main navigation"
       >
         {/* Project selector — PROMPT 21 polish */}
-        <div className={`p-3 border-b border-slate-100 ${isCollapsed ? 'hidden' : 'block'}`}>
+        <div className={`p-3 border-b border-white/10 ${isCollapsed ? 'hidden' : 'block'}`}>
           <label htmlFor="project-select" className="block text-xs font-medium text-slate-500 mb-1">
             Project
           </label>
@@ -56,7 +56,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
             id="project-select"
             value={projectId ?? ''}
             onChange={(e) => setProjectId(e.target.value || null)}
-            className="w-full h-8 px-2 border border-slate-300 rounded-md text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#0369A1] cursor-pointer"
+            className="w-full h-8 px-2 border border-slate-300 rounded-md text-xs bg-[#0c0c0c] focus:outline-none focus:ring-2 focus:ring-[#38bdf8] cursor-pointer"
           >
             <option value="">All Projects</option>
             {projects.map((p) => (
@@ -69,7 +69,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
 
         <button
           onClick={toggle}
-          className="hidden lg:flex items-center gap-2 p-3 hover:bg-slate-50 text-slate-600 cursor-pointer border-b border-slate-100 transition-colors"
+          className="hidden lg:flex items-center gap-2 p-3 hover:bg-white/[0.04] text-slate-600 cursor-pointer border-b border-white/10 transition-colors"
           aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
@@ -85,7 +85,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-150 cursor-pointer group ${
                   isActive
-                    ? 'bg-[#0F172A] text-white shadow-sm'
+                    ? 'bg-white text-black shadow-sm'
                     : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                 } ${isCollapsed ? 'justify-center' : ''}`
               }
@@ -107,8 +107,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
           </div>
         )}
 
-        <div className="p-3 text-xs text-slate-400 border-t border-slate-200 flex items-center justify-between">
-          {!isCollapsed && <span>v0.1.0 • IGDTUW</span>}
+        <div className="p-3 text-xs text-slate-400 border-t border-white/10 flex items-center justify-between">
+          {!isCollapsed && <span>v0.1.0</span>}
           {isCollapsed && <span>v0.1</span>}
         </div>
       </aside>

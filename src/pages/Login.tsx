@@ -39,19 +39,19 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-[#0F172A] rounded-lg mb-3">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-black border border-white/20 rounded-lg mb-3">
             <LogIn className="text-white" size={24} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">National Land Acquisition System</h1>
-          <p className="text-sm text-slate-500 mt-1">Government of India • IGDTUW</p>
+          <h1 className="text-2xl font-bold text-slate-900">RTNLAMS</h1>
+          <p className="text-sm text-slate-500 mt-1">Government of India</p>
         </div>
 
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-5"
+          className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-6 shadow-sm space-y-5"
           noValidate
         >
           <h2 className="text-lg font-semibold text-slate-900">Sign in to your account</h2>
@@ -65,7 +65,7 @@ export default function Login() {
               type="email"
               autoComplete="email"
               placeholder="officer@gov.in"
-              className={`w-full h-11 px-3 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1] focus:border-[#0369A1] ${errors.email ? 'border-red-500' : 'border-slate-300'}`}
+              className={`w-full h-11 px-3 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8] focus:border-[#38bdf8] ${errors.email ? 'border-red-500' : 'border-slate-300'}`}
               aria-invalid={!!errors.email}
               aria-describedby={errors.email ? 'email-error' : undefined}
               {...register('email')}
@@ -87,7 +87,7 @@ export default function Login() {
                 type={showPw ? 'text' : 'password'}
                 autoComplete="current-password"
                 placeholder="••••••••"
-                className={`w-full h-11 px-3 pr-10 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0369A1] focus:border-[#0369A1] ${errors.password ? 'border-red-500' : 'border-slate-300'}`}
+                className={`w-full h-11 px-3 pr-10 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8] focus:border-[#38bdf8] ${errors.password ? 'border-red-500' : 'border-slate-300'}`}
                 aria-invalid={!!errors.password}
                 aria-describedby={errors.password ? 'password-error' : undefined}
                 {...register('password')}
@@ -111,14 +111,14 @@ export default function Login() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full h-11 bg-[#0F172A] text-white rounded-md text-sm font-medium hover:bg-[#1e293b] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-[#0369A1] focus:ring-offset-2"
+            className="w-full h-11 bg-white text-black rounded-md text-sm font-medium hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-[#38bdf8] focus:ring-offset-2"
           >
             {isSubmitting ? 'Signing in…' : 'Sign in'}
           </button>
 
           <p className="text-center text-sm text-slate-600">
             Don’t have an account?{' '}
-            <Link to="/register" className="text-[#0369A1] font-medium hover:underline">
+            <Link to="/register" className="text-[#38bdf8] font-medium hover:underline">
               Create account
             </Link>
           </p>

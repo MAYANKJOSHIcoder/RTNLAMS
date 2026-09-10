@@ -130,7 +130,8 @@ def translate(req: TranslateRequest) -> TranslateResponse:
 
     # Generate
     with torch.no_grad():
-        generated = model.generate(**inputs, max_length=MAX_LENGTH, num_beams=NUM_BEAMS)
+        # use_cache=False: transformers 4.5x passes Cache objects the bundled IndicTrans2 code can't read
+        generated = model.generate(**inputs, max_length=MAX_LENGTH, num_beams=NUM_BEAMS, use_cache=False)
 
     # Decode + postprocess
     with tokenizer.as_target_tokenizer():

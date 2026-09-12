@@ -44,9 +44,10 @@ export function statusColor(status: string): string {
 }
 
 // Fetch parcels within bbox (or all if no bbox) — uses Supabase + PostGIS bbox via ST_Within if configured; falls back to full fetch
-export function useParcels(bbox?: [number, number, number, number] | null, projectId?: string) {
+export function useParcels(bbox?: [number, number, number, number] | null, projectId?: string, enabled = true) {
   return useQuery({
     queryKey: ['parcels', bbox, projectId],
+    enabled,
     queryFn: async () => {
       if (!isSupabaseConfigured()) throw new Error('Database not connected');
       let query = supabase.from('parcels').select('*');

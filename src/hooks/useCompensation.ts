@@ -3,10 +3,10 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
 import type { CompensationAward, PaymentStatus } from '../lib/types';
 import toast from 'react-hot-toast';
 
-export function useCompensation(parcelId?: string) {
+export function useCompensation(parcelId?: string, enabled = true) {
   return useQuery({
     queryKey: ['compensation', parcelId],
-    enabled: !!parcelId || parcelId === undefined,
+    enabled: enabled && (!!parcelId || parcelId === undefined),
     queryFn: async () => {
       if (!isSupabaseConfigured()) return [] as CompensationAward[];
       let q = supabase.from('compensation_awards').select('*').order('created_at', { ascending: false });

@@ -45,7 +45,7 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-12 h-12 bg-black border border-white/20 rounded-lg mb-3">
             <LogIn className="text-white" size={24} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">RTNLAMS</h1>
+          <h1 className="text-2xl font-bold text-slate-900"><Link to="/" className="cursor-pointer hover:text-white transition-colors">RTNLAMS</Link></h1>
           <p className="text-sm text-slate-500 mt-1">Government of India</p>
         </div>
 

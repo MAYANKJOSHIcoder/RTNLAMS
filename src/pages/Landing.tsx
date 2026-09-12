@@ -1,10 +1,15 @@
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight, Bell, FileCheck, FileText, Layers, LineChart, Lock, Map as MapIcon,
-  MapPin, Radar, Scale, ShieldCheck, Truck, Factory, Building2, Train, Mail, Phone, Users, Clock,
+  ArrowRight, Bell, CheckCircle2, ExternalLink, FileCheck, FileText, Layers, LineChart, Lock,
+  Map as MapIcon, MapPin, Radar, Scale, ShieldCheck, Truck, Factory, Building2, Train, Mail, Phone,
+  Users, Clock, BarChart3, X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import UserMenu from '../components/layout/UserMenu';
+import { useParcels } from '../hooks/useParcels';
+import { useCompensation } from '../hooks/useCompensation';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import satelliteImage from '../assets/satellite.webp';
 
 const CONTACT = {
   email: 'hello@godijicodes.in',
@@ -17,13 +22,6 @@ const NAV = [
   { label: 'Use Cases', href: '#usecases' },
   { label: 'Resources', href: '#resources' },
   { label: 'Pricing', href: '#pricing' },
-];
-
-const STATS = [
-  { value: '₹4.9L Cr', label: 'Annual infrastructure outlay running through land acquisition' },
-  { value: '60%', label: 'Of projects face delays at the acquisition stage' },
-  { value: '30%', label: 'Typical cost overrun when acquisition slips' },
-  { value: '1,800+', label: 'Land acquisition officers working without real-time tooling' },
 ];
 
 const PLATFORM = [
@@ -87,8 +85,193 @@ const PRICING = [
   },
 ];
 
+const DEMO_PARCEL = {
+  parcel_number: '245/1',
+  owner_name: 'Naresh Tomar',
+  village: 'Village Balgarh, Tehsil Sonipat',
+  status: 'surveyed',
+  risk_score: 0.39,
+  land_use: 'Agricultural',
+  compensation: 44226921,
+  disbursed: 45,
+};
+
+const AUTHORIZED_ROLES = new Set(['admin', 'field_officer', 'auditor']);
+
+const RISK_COLORS = { Low: '#00d294', Medium: '#fbbf24', High: '#fb923c', Critical: '#f43f5e' } as const;
+const DEMO_RISK_COUNTS = { Low: 1900000, Medium: 380000, High: 90000, Critical: 30000 } as const;
+
+function formatCurrency(value: number) {
+  return `₹${Math.round(value).toLocaleString('en-IN')}`;
+}
+
+const compactFmt = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 });
+function compact(value: number) {
+  return compactFmt.format(value);
+}
+
+function progressForStatus(status?: string) {
+  return { identified: 20, notified: 42, surveyed: 67, acquired: 100, disputed: 32 }[status ?? ''] ?? 67;
+}
+
+function riskLabel(score: number) {
+  if (score >= 0.8) return 'Critical Risk';
+  if (score >= 0.6) return 'High Risk';
+  if (score >= 0.3) return 'Medium Risk';
+  return 'Low Risk';
+}
+
+function Hero({ user, role }: { user: boolean; role?: string }) {
+  const canViewData = user && !!role && AUTHORIZED_ROLES.has(role);
+  const { data: parcels = [] } = useParcels(null, undefined, canViewData);
+  const { data: awards = [] } = useCompensation(undefined, canViewData);
+  const liveParcel = parcels.find((parcel) => parcel.risk_score != null) ?? parcels[0];
+  const parcel = liveParcel ?? (canViewData ? DEMO_PARCEL : null);
+  const isDemo = !liveParcel;
+  const progress = progressForStatus(parcel?.status);
+  const riskScore = Math.round((parcel?.risk_score ?? DEMO_PARCEL.risk_score) * 100);
+  const compensation = liveParcel
+    ? awards.filter((award) => award.parcel_id === liveParcel.id).reduce((sum, award) => sum + Number(award.awarded_amount ?? 0), 0)
+    : DEMO_PARCEL.compensation;
+  const parcelCount = canViewData && parcels.length ? parcels.length : 2400000;
+  const highRiskCount = canViewData && parcels.length
+    ? parcels.filter((item) => (item.risk_score ?? 0) >= 0.6).length
+    : 120000;
+  const paidAmount = canViewData && awards.length
+    ? awards.filter((award) => award.payment_status === 'completed').reduce((sum, award) => sum + Number(award.awarded_amount ?? 0), 0)
+    : 12800000000;
+  const riskLevelOf = (score?: number | null) => ((score ?? 0) > 0.8 ? 'Critical' : (score ?? 0) > 0.6 ? 'High' : (score ?? 0) > 0.3 ? 'Medium' : 'Low');
+  const riskData = ['Low', 'Medium', 'High', 'Critical'].map((name) => ({
+    name,
+    color: RISK_COLORS[name as keyof typeof RISK_COLORS],
+    count: canViewData && parcels.length
+      ? parcels.filter((item) => riskLevelOf(item.risk_score) === name).length
+      : DEMO_RISK_COUNTS[name as keyof typeof DEMO_RISK_COUNTS],
+  }));
+
+  return (
+    <section
+      className="relative min-h-[calc(100svh-3.5rem)] overflow-hidden bg-black bg-cover bg-center"
+      style={{ backgroundImage: `linear-gradient(90deg, rgba(0,0,0,.78), rgba(0,0,0,.24) 58%, rgba(0,0,0,.62)), linear-gradient(rgba(0,0,0,.18), rgba(0,0,0,.18)), url(${satelliteImage})` }}
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_55%_35%,transparent_0,rgba(0,0,0,.28)_75%)]" />
+
+      <div className="relative mx-auto flex min-h-[calc(100svh-3.5rem)] max-w-[1500px] flex-col justify-between gap-8 px-4 py-5 sm:px-8 lg:px-10">
+        <div className="flex items-stretch justify-between gap-4">
+          <div className="flex items-center rounded-2xl border border-white/10 bg-black/75 px-4 text-xs text-white/60 shadow-2xl backdrop-blur-xl">
+            <div className="flex items-center gap-2 font-mono tracking-[.16em]">
+              <span className="live-dot" /> Real Time National Land Acquisition And Management System
+            </div>
+          </div>
+          <div className="hidden items-stretch gap-1 rounded-2xl border border-white/10 bg-black/75 p-1 text-sm text-white/55 shadow-2xl backdrop-blur-xl sm:flex">
+            <Link to="/dashboard" className="inline-flex items-center rounded-xl bg-white px-4 font-medium text-black">Satellite</Link>
+            <Link to="/parcels" className="inline-flex items-center rounded-xl px-3 transition-colors hover:bg-white/10">Land parcels</Link>
+            <Link to="/compensation" className="inline-flex items-center rounded-xl px-3 transition-colors hover:bg-white/10">Risk overlay</Link>
+            <Link to={user ? '/dashboard' : '/login'} aria-label={user ? 'Open dashboard' : 'Login'} className="inline-flex items-center rounded-xl px-2 text-white/40 transition-colors hover:bg-white/10">↗</Link>
+          </div>
+        </div>
+
+        <div className="grid flex-1 items-stretch gap-6 lg:grid-cols-[minmax(0,460px)_minmax(280px,370px)] lg:justify-between">
+          <div className="max-w-[460px] rounded-[1.75rem] border border-white/10 bg-[#0b0d0b]/90 p-7 shadow-2xl backdrop-blur-xl sm:p-10">
+            <div className="flex items-center gap-2 text-xs font-mono tracking-[.2em] text-white/55">
+              <span className="text-white">✣</span> ENTERPRISE GIS PLATFORM
+            </div>
+            <h1 className="mt-7 font-display text-4xl font-bold leading-[.98] tracking-[-.04em] text-white sm:text-6xl">
+              National Land Acquisition &amp; Management System
+            </h1>
+            <p className="mt-7 text-base leading-7 text-white/60 sm:text-lg">
+              A unified geospatial platform for real-time land acquisition, ownership verification, legal tracking, compensation management, and AI-driven decision support.
+            </p>
+            <ul className="mt-7 space-y-3 text-sm text-white/85 sm:text-base">
+              {['Real-Time Parcel Intelligence', 'End-to-End Acquisition Workflow', 'Legal & Ownership Verification', 'Compensation & Disbursement', 'AI Risk & Impact Assessment'].map((item) => (
+                <li key={item} className="flex items-center gap-3">
+                  <CheckCircle2 size={18} className="shrink-0 text-white" /> {item}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link to={user ? '/dashboard' : '/register'} className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold text-black transition-colors hover:bg-neutral-200">
+                Explore Platform <ArrowRight size={17} />
+              </Link>
+              <Link to={user ? '/dashboard' : '/login'} className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-5 py-3 font-medium text-white transition-colors hover:bg-white/10">
+                Login <ExternalLink size={16} />
+              </Link>
+            </div>
+            <div className="mt-9 grid grid-cols-3 gap-4 border-t border-white/10 pt-6">
+              <div><strong className="block text-lg text-white sm:text-xl">{compact(parcelCount)}+</strong><span className="text-xs text-white/45">Parcels managed</span></div>
+              <div><strong className="block text-lg text-white sm:text-xl">₹{compact(paidAmount)}</strong><span className="text-xs text-white/45">Compensation tracked</span></div>
+              <div><strong className="block text-lg text-white sm:text-xl">{compact(highRiskCount)}</strong><span className="text-xs text-white/45">Risk flagged</span></div>
+            </div>
+          </div>
+
+          {canViewData && parcel && (
+            <div className="flex w-full max-w-[370px] flex-col gap-5 lg:justify-self-end">
+              <div className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#0b0d0b]/95 text-white shadow-2xl backdrop-blur-xl">
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                <h2 className="font-semibold">Parcel Overview</h2>
+                <button className="rounded-lg p-1 text-white/50 hover:bg-white/10" aria-label="Close parcel overview"><X size={18} /></button>
+              </div>
+              <div className="space-y-5 p-5">
+                {isDemo && <div className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">Demo record until live parcel data is available.</div>}
+                <div>
+                  <div className="text-xs text-white/40">PARCEL ID: {parcel.parcel_number}</div>
+                  <div className="mt-1 font-semibold">{parcel.owner_name}</div>
+                  <div className="text-sm text-white/45">{liveParcel ? [liveParcel.village, liveParcel.district].filter(Boolean).join(', ') || 'Location recorded in parcel register' : DEMO_PARCEL.village}</div>
+                </div>
+                <div className="flex items-center justify-between text-sm"><span className="text-white/50">Legal Status</span><strong>{parcel.status === 'disputed' ? 'Review' : 'Clear'}</strong></div>
+                <div>
+                  <div className="mb-2 flex justify-between text-sm"><span className="text-white/50">Acquisition Status</span><strong>{progress}%</strong></div>
+                  <div className="h-2 rounded-full bg-white/10"><div className="h-full rounded-full bg-white" style={{ width: `${progress}%` }} /></div>
+                </div>
+                <div className="rounded-xl border border-white/10 p-4">
+                  <div className="flex justify-between text-sm"><span className="text-white/50">Compensation (₹)</span><span className="text-xs text-white/40">Disbursed {liveParcel ? 'live' : `${DEMO_PARCEL.disbursed}%`}</span></div>
+                  <div className="mt-1 text-xl font-bold">{formatCurrency(compensation || DEMO_PARCEL.compensation)}</div>
+                </div>
+                <div className="flex items-center justify-between rounded-xl border border-white/10 p-4">
+                  <div><div className="text-xs uppercase tracking-wide text-white/40">AI Risk Score</div><div className="mt-1 font-medium">{riskLabel(riskScore / 100)}</div></div>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/20 text-lg font-bold">{riskScore}</div>
+                </div>
+                <div className="flex justify-between gap-4 text-sm"><span className="text-white/50">Land Use <strong className="ml-2 text-white">{parcel.land_use ?? DEMO_PARCEL.land_use}</strong></span><span className="text-white/50">Zone Type <strong className="ml-2 text-white">Semi-Urban</strong></span></div>
+                <Link to="/parcels" className="flex items-center justify-between rounded-xl border border-white/15 px-4 py-3 text-sm font-medium hover:bg-white/10">View Complete Record <ArrowRight size={16} /></Link>
+              </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-[#0b0d0b]/95 p-5 text-white shadow-2xl backdrop-blur-xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-semibold"><BarChart3 size={18} /> AI Risk Analysis</div>
+                  <span className={`text-xs ${isDemo ? 'text-amber-200' : 'text-emerald-300'}`}>{isDemo ? 'Demo' : 'Live'}</span>
+                </div>
+                <div className="mt-2 flex items-center gap-4">
+                  <div className="h-32 w-32 shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={riskData} dataKey="count" nameKey="name" innerRadius={34} outerRadius={54}>
+                          {riskData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                        </Pie>
+                        <Tooltip contentStyle={{ background: '#0b0d0b', border: '1px solid rgba(255,255,255,.15)', borderRadius: 8, fontSize: 12 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <ul className="flex-1 space-y-1.5 text-xs text-white/60">
+                    {riskData.map((entry) => (
+                      <li key={entry.name} className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ background: entry.color }} />{entry.name}</span>
+                        <strong className="text-white">{entry.count.toLocaleString('en-IN')}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Landing() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   return (
     <div className="bg-black text-[#ededed]">
@@ -105,54 +288,22 @@ export default function Landing() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
+          {!user && (
+            <Link to="/login" className="hidden rounded-md border border-white/15 px-3 py-1.5 text-sm transition-colors hover:bg-white/[0.04] sm:inline-flex">
+              Login
+            </Link>
+          )}
           {user ? (
             <UserMenu />
           ) : (
-            <>
-              <Link to="/login" className="text-sm px-3 py-1.5 rounded-md border border-white/15 hover:bg-white/[0.04] transition-colors">
-                Login
-              </Link>
-              <Link to="/register" className="text-sm px-3 py-1.5 rounded-md bg-white text-black font-medium hover:bg-neutral-200 transition-colors">
-                Get Started
-              </Link>
-            </>
+            <Link to="/register" className="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-black transition-colors hover:bg-neutral-200">
+              Get Started
+            </Link>
           )}
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="relative grid-overlay border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-6 pt-24 pb-20 text-center fade-up">
-          <div className="inline-flex items-center gap-2 text-xs font-mono text-[#8f8f8f] border border-white/15 rounded-full px-3 py-1 mb-6">
-            <span className="live-dot" /> Real-Time Land Acquisition Control Tower
-          </div>
-          <h1 className="font-display text-4xl md:text-6xl font-bold tracking-tight leading-[1.05]">
-            The control tower for
-            <br />
-            India's land acquisition.
-          </h1>
-          <p className="mt-6 max-w-2xl mx-auto text-base md:text-lg text-[#8f8f8f]">
-            RTNLAMS tracks every parcel through the 12-stage RFCTLARR pipeline with real-time SLAs, GIS intelligence and court-ready audit trails — so acquisitions move at the speed of infrastructure.
-          </p>
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link to="/register" className="inline-flex items-center gap-2 bg-white text-black font-medium px-6 py-3 rounded-md hover:bg-neutral-200 transition-colors">
-              Launch the Control Tower <ArrowRight size={16} />
-            </Link>
-            <a href="#platform" className="inline-flex items-center gap-2 border border-white/15 px-6 py-3 rounded-md hover:bg-white/[0.04] transition-colors">
-              See the platform
-            </a>
-          </div>
-
-          <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-px bg-white/10 border border-white/10 rounded-xl overflow-hidden text-left">
-            {STATS.map((s) => (
-              <div key={s.value} className="bg-black p-6">
-                <div className="font-display text-2xl md:text-3xl font-bold tabnum">{s.value}</div>
-                <div className="mt-2 text-xs text-[#8f8f8f] leading-relaxed">{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <Hero user={!!user} role={profile?.role} />
 
       {/* Platform */}
       <section id="platform" className="border-b border-white/10">

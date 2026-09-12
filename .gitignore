@@ -63,8 +63,5 @@ PROGRESS.md
 user_level.md
 skills/
 
-# Python (indictrans-server)
-.venv/
-venv/
-__pycache__/
-*.py[cod]
+# Python server — local only (not deployed, not tracked)
+indictrans-server/

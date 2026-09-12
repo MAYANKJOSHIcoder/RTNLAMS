@@ -60,6 +60,7 @@ Desktop.ini
 
 # Project — local only (per user: PROGRESS.md not committed, tooling)
 PROGRESS.md
+user_level.md
 skills/
 
 # Python (indictrans-server)

@@ -54,11 +54,13 @@ npm install
 cp .env.example .env
 # Edit .env with real keys (see Environment Variables below)
 
-# 3. Supabase — create a FRESH project, then SQL Editor (run in order):
-#   supabase/001_schema.sql  (complete schema: tables, RLS role matrix, stage RPCs,
-#                             triggers, storage buckets, spatial RPCs, aadhaar)
-#   supabase/002_seed.sql    (3 projects, 30 parcels spread across stages 2-11,
-#                             docs, hearings, awards, audits, risks)
+# 3. Supabase — create a FRESH project (or reset an existing one), SQL Editor (in order):
+#   supabase/000_drop_all.sql   (existing project only — drops tables/functions/policies;
+#                                then empty+delete the 3 buckets in Dashboard → Storage)
+#   supabase/001_schema.sql     (complete schema: tables, RLS role matrix, stage RPCs,
+#                                triggers, storage buckets, spatial RPCs, aadhaar)
+#   supabase/002_seed.sql       (3 projects, 30 parcels spread across stages 2-11,
+#                                docs, hearings, awards, audits, risks)
 
 # 4. Register 4 accounts via the app (any emails), then assign staff roles:
 #   node scripts/set-role.mjs <email> admin

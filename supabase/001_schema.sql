@@ -3,6 +3,7 @@
 -- COMPLETE SCHEMA for fresh Supabase setup (run this first, then 002_seed.sql)
 --
 -- Apply in Supabase SQL Editor:
+--   0. (existing project only) 000_drop_all.sql — resets schema + storage policies
 --   1. This file (001_schema.sql)
 --   2. 002_seed.sql
 --   3. Register 4 accounts via the app UI (any emails), then assign roles:
@@ -36,12 +37,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Current user's role (SECURITY DEFINER: avoids RLS recursion on user_profiles)
-CREATE OR REPLACE FUNCTION public.current_user_role()
-RETURNS TEXT AS $$
-  SELECT role FROM public.user_profiles WHERE id = auth.uid();
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
-
 -- ---------------------------------------------------------------------------
 -- 1. user_profiles
 -- ---------------------------------------------------------------------------
@@ -55,6 +50,13 @@ CREATE TABLE public.user_profiles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Current user's role (SECURITY DEFINER: avoids RLS recursion on user_profiles).
+-- Declared AFTER user_profiles — LANGUAGE sql bodies are parsed at creation time.
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS TEXT AS $$
+  SELECT role FROM public.user_profiles WHERE id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- ---------------------------------------------------------------------------
 -- 2. stage_defs — single source of the 12-stage lifecycle (used by
@@ -900,6 +902,29 @@ ON CONFLICT (id) DO NOTHING;
 -- Bucket policies: authenticated users can upload into all three;
 -- reads go through signed URLs issued client-side (createSignedUrl),
 -- which bypasses object policies but requires an authenticated session.
+-- Drop legacy (004-era) and current policy names first — re-runnable.
+DO $$ DECLARE p TEXT; BEGIN
+  FOREACH p IN ARRAY ARRAY[
+    -- current
+    'auth read all buckets', 'auth write documents',
+    -- 004_storage_buckets era
+    'Authenticated users can upload documents',
+    'Authenticated users can update their documents',
+    'Authenticated users can delete their documents',
+    'Public read access to documents',
+    'Authenticated users can upload audit evidence',
+    'Authenticated users can update their audit evidence',
+    'Authenticated users can delete their audit evidence',
+    'Public read access to audit evidence',
+    'Authenticated users can upload hearing minutes',
+    'Authenticated users can update their hearing minutes',
+    'Authenticated users can delete their hearing minutes',
+    'Public read access to hearing minutes'
+  ] LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects;', p);
+  END LOOP;
+END $$;
+
 CREATE POLICY "auth read all buckets" ON storage.objects FOR SELECT
   USING (bucket_id IN ('documents','audit-evidence','hearing-minutes') AND auth.role() = 'authenticated');
 

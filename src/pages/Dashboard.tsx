@@ -22,11 +22,6 @@ export default function Dashboard() {
   const { projectId } = useProject();
   const { profile } = useAuth();
 
-  // Citizens get the roadmap view — no staff KPIs, map, or SLA panel
-  if (profile?.role === 'citizen') {
-    return <div className="p-4 md:p-6 max-w-4xl mx-auto"><CitizenDashboard /></div>;
-  }
-
   const { data: parcels = [], refetch: refetchParcels, isError, error } = useParcels(null, projectId ?? undefined);
   const { data: slaBreaches = [] } = useSlaBreaches();
   const { data: risks = [] } = useRiskAssessments();
@@ -120,6 +115,12 @@ export default function Dashboard() {
     // SLA breaches are already reflected in stageCounts (breached stages show as 'breached' status)
     return stageCounts;
   }, [stageCounts]);
+
+  // Citizens get the roadmap view — no staff KPIs, map, or SLA panel.
+  // (Branch AFTER all hooks — rules-of-hooks)
+  if (profile?.role === 'citizen') {
+    return <div className="p-4 md:p-6 max-w-4xl mx-auto"><CitizenDashboard /></div>;
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto">

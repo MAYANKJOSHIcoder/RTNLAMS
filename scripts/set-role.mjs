@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Set a user's role (and optionally CNIC) in user_profiles via the service_role key.
- * Bypasses RLS — this is the ONLY way to grant staff roles now that registration is citizen-only.
+ * Set a user's role (and optionally aadhaar) in user_profiles via the service_role key.
+ * Bypasses RLS and the role-guard trigger (auth.uid() IS NULL for service sessions) —
+ * this is the ONLY way to grant staff roles now that registration is citizen-only.
  *
- * Usage:  node scripts/set-role.mjs <email> <admin|field_officer|auditor|citizen> [cnic]
+ * Usage:  node scripts/set-role.mjs <email> <admin|field_officer|auditor|citizen> [aadhaar]
  * Env:    scripts/.env  →  SUPABASE_URL=...  SERVICE_ROLE_KEY=...   (gitignored — never commit)
  */
 import { readFileSync } from 'node:fs';
@@ -27,9 +28,9 @@ function loadEnv() {
 }
 
 async function main() {
-  const [email, role, cnic] = process.argv.slice(2);
+  const [email, role, aadhaar] = process.argv.slice(2);
   if (!email || !role || !VALID.includes(role)) {
-    console.error(`Usage: node scripts/set-role.mjs <email> <${VALID.join('|')}> [cnic]`);
+    console.error(`Usage: node scripts/set-role.mjs <email> <${VALID.join('|')}> [aadhaar]`);
     process.exit(1);
   }
   const { SUPABASE_URL, SERVICE_ROLE_KEY } = loadEnv();
@@ -50,7 +51,13 @@ async function main() {
   // Upsert the profile row (id PK = auth user id; keep existing full_name)
   const existing = await (await fetch(`${SUPABASE_URL}/rest/v1/user_profiles?id=eq.${user.id}&select=full_name`, { headers: H })).json();
   const patch = { id: user.id, full_name: existing[0]?.full_name ?? user.user_metadata?.full_name ?? email.split('@')[0], role };
-  if (cnic) patch.cnic = cnic;
+  if (aadhaar) {
+    if (!/^\d{12}$/.test(aadhaar)) {
+      console.error('Aadhaar must be exactly 12 digits');
+      process.exit(1);
+    }
+    patch.aadhaar = aadhaar;
+  }
   const res = await fetch(`${SUPABASE_URL}/rest/v1/user_profiles`, {
     method: 'POST',
     headers: { ...H, Prefer: 'resolution=merge-duplicates,return=representation' },
@@ -61,7 +68,7 @@ async function main() {
     process.exit(1);
   }
   const row = (await res.json())[0];
-  console.log(`OK — ${email} → role=${row.role}${row.cnic ? ` cnic=${row.cnic}` : ''}`);
+  console.log(`OK — ${email} → role=${row.role}${row.aadhaar ? ` aadhaar=XXXX-XXXX-${String(row.aadhaar).slice(8)}` : ''}`);
 }
 
 main().catch((e) => {

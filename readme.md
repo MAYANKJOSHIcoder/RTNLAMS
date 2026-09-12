@@ -12,7 +12,7 @@ An integrated digital control tower uniting **GIS parcel mapping**, **automated 
 | Component | Status |
 |-----------|--------|
 | Core App (UI, Auth, Routing, Layout) | ✅ Complete |
-| Database Schema + RLS + PostGIS | ✅ Complete (migrations ready) |
+| Database Schema + RLS + PostGIS | ✅ Complete (001_schema.sql — apply to a fresh project) |
 | GIS Mapping (MapLibre + OSM) | ✅ Complete |
 | 12-Stage Lifecycle + SLA Tracking | ✅ Complete |
 | Risk Scoring (7-factor) | ✅ Complete |
@@ -54,13 +54,17 @@ npm install
 cp .env.example .env
 # Edit .env with real keys (see Environment Variables below)
 
-# 3. Supabase — create project, then SQL Editor (run in order):
-#   supabase/migrations/001_initial_schema.sql  (schema + RLS + triggers)
-#   supabase/migrations/004_storage_buckets.sql (documents, audit-evidence, hearing-minutes buckets)
-#   supabase/migrations/005_spatial_rpcs.sql    (parcels_within_bbox, parcels_nearby, parcels_intersecting_corridor, get_parcel_current_stages)
-#   supabase/seed.sql                           (30 sample parcels, docs, stages, etc.)
+# 3. Supabase — create a FRESH project, then SQL Editor (run in order):
+#   supabase/001_schema.sql  (complete schema: tables, RLS role matrix, stage RPCs,
+#                             triggers, storage buckets, spatial RPCs, aadhaar)
+#   supabase/002_seed.sql    (3 projects, 30 parcels spread across stages 2-11,
+#                             docs, hearings, awards, audits, risks)
 
-# 4. Create Storage bucket `documents` in Supabase Dashboard (if migration not applied)
+# 4. Register 4 accounts via the app (any emails), then assign staff roles:
+#   node scripts/set-role.mjs <email> admin
+#   node scripts/set-role.mjs <email> field_officer
+#   node scripts/set-role.mjs <email> auditor
+#   (citizen is the default role; set-role.mjs also takes an optional 12-digit aadhaar)
 
 # 5. Start IndicTrans2 server (for real translation):
 cd indictrans-server
@@ -142,7 +146,7 @@ Seed: 3 projects, 30 parcels (Delhi/Mumbai), 60 docs, 60 stages, 10 hearings, 15
 - **Digital Divide:** Rural owners may lack portal literacy → needs facilitation centers.
 - **No Demo Data:** Without `VITE_SUPABASE_URL` the app shows "Database not connected" instead of fake data — fill `.env` and apply SQL migrations for live.
 - **Bundle Size:** `recharts`+`maplibre-gl` → chunks ~356KB (Dashboard) / ~979KB (MapLibre) — code-split per route mitigates; `vite` warns >500KB.
-- **Seed Data:** `seed.sql` must be run via Supabase SQL Editor (RLS blocks anon truncate).
+- **Seed Data:** `002_seed.sql` must be run via Supabase SQL Editor (RLS blocks anon truncate).
 - **IndicTrans2 Server:** Separate Python process (`indictrans-server/`) — not deployed on Vercel; run locally or on GPU instance.
 
 ---
@@ -155,7 +159,7 @@ cd RTNLAMS
 npm install
 cp .env.example .env   # fill keys
 
-# Supabase SQL Editor → 001_initial_schema.sql → 004_storage_buckets.sql → 005_spatial_rpcs.sql → seed.sql
+# Supabase SQL Editor → 001_schema.sql → 002_seed.sql → register users → set-role.mjs
 # Create `documents` bucket in Supabase Dashboard (if migration not applied)
 
 # Start IndicTrans2 server for real translation

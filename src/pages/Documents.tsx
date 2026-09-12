@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, Suspense, lazy } from 'react';
 import { useParams } from "react-router-dom";
 import { useDocuments } from "../hooks/useDocuments";
 import DocumentUpload from "../components/documents/DocumentUpload";
 import DocumentList from "../components/documents/DocumentList";
-import DocumentDetail from "../components/documents/DocumentDetail";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { useAuth } from "../context/AuthContext";
 import { can } from "../lib/permissions";
 import type { Document as DocType } from "../lib/types";
+
+// Detail pulls the gemini/OCR client — load it only when a doc is opened
+const DocumentDetail = lazy(() => import("../components/documents/DocumentDetail"));
 
 export default function Documents() {
   const { id: selectedId } = useParams();
@@ -31,7 +33,9 @@ export default function Documents() {
       <DocumentList parcelId={selectedId} onView={handleView} />
 
       {viewDoc && (
-        <DocumentDetail document={viewDoc} onClose={() => setViewDoc(null)} />
+        <Suspense fallback={<div className="py-8 text-center text-sm text-slate-500">Loading document…</div>}>
+          <DocumentDetail document={viewDoc} onClose={() => setViewDoc(null)} />
+        </Suspense>
       )}
 
       {!selectedId && (

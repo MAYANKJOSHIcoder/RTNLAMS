@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity } from 'lucide-react';
 import { config, isGeminiConfigured, isIndicTransConfigured, isSupabaseConfigured } from '../../lib/config';
 import { supabase } from '../../lib/supabase/client';
-import { tesseractReady } from '../../lib/gemini/client';
 
 type Status = 'ok' | 'down' | 'skipped' | 'checking';
 interface Service {
@@ -76,7 +75,8 @@ const services: Service[] = [
   {
     key: 'tesseract',
     label: 'Tesseract OCR engine',
-    check: async () => (await tesseractReady() ? 'ok' : 'down'),
+    // Lazy-loaded with the first upload — no worker spawn / bundle download here
+    check: async () => 'skipped',
   },
   {
     key: 'satellite',

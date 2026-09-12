@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Upload, MapPin, AlertTriangle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -12,7 +12,7 @@ import { useHearings } from '../hooks/useHearings';
 import { useCompensation } from '../hooks/useCompensation';
 import { useAuditLogs } from '../hooks/useAudit';
 import { useRiskAssessments } from '../hooks/useRisk';
-import ParcelMap from '../components/maps/ParcelMap';
+import { useProject } from '../context/ProjectContext';
 import { Table } from '../components/ui/Table';
 import { Badge, statusToBadgeVariant } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -21,11 +21,13 @@ import StageTimeline from '../components/parcels/StageTimeline';
 import StageBoard from '../components/parcels/StageBoard';
 import AddParcelModal from '../components/parcels/AddParcelModal';
 import DocumentList from '../components/documents/DocumentList';
-import { useProject } from '../context/ProjectContext';
 import type { Parcel, AcquisitionStage } from '../lib/types';
 import { can } from '../lib/permissions';
 import { STAGES } from '../lib/stages';
 import { AREA_UNITS, UNIT_LABELS, formatArea, toHectares, SQM_PER_UNIT, type AreaUnit } from '../lib/units';
+
+// maplibre-gl is ~260KB gzipped — load the map chunk only when its panel mounts
+const ParcelMap = lazy(() => import('../components/maps/ParcelMap'));
 
 const TABS = ['Overview', 'Documents', 'Timeline', 'Hearings', 'Compensation', 'Audit'] as const;
 
@@ -297,11 +299,13 @@ export default function Parcels() {
           <h3 className="text-sm font-semibold text-slate-900 mb-2 flex items-center gap-1">
             <MapPin size={14} /> {selected ? `Location: ${selected.parcel_number}` : 'Select a parcel to locate'}
           </h3>
-          {selected ? (
-            <ParcelMap projectId={projectId ?? undefined} selectedParcelId={selected.id} height="380px" />
-          ) : (
-            <ParcelMap projectId={projectId ?? undefined} height="380px" />
-          )}
+          <Suspense fallback={<div className="h-[380px] rounded-lg border border-slate-200 animate-pulse bg-white/[0.02] flex items-center justify-center text-xs text-slate-500">Loading map…</div>}>
+            {selected ? (
+              <ParcelMap projectId={projectId ?? undefined} selectedParcelId={selected.id} height="380px" />
+            ) : (
+              <ParcelMap projectId={projectId ?? undefined} height="380px" />
+            )}
+          </Suspense>
         </div>
       </div>
       </>

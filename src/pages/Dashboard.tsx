@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, Suspense, lazy } from 'react';
 import { FolderKanban, MapIcon, AlertTriangle, ShieldCheck, Wallet } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useParcels } from '../hooks/useParcels';
@@ -6,13 +6,15 @@ import { useSlaBreaches } from '../hooks/useStages';
 import { useRiskAssessments } from '../hooks/useRisk';
 import { useCompensation } from '../hooks/useCompensation';
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
-import ParcelMap from '../components/maps/ParcelMap';
 import KPICard from '../components/dashboard/KPICard';
 import StagePipeline from '../components/dashboard/StagePipeline';
 import ActivityFeed, { type ActivityItem } from '../components/dashboard/ActivityFeed';
 import RiskAlerts from '../components/dashboard/RiskAlerts';
 import { ErrorBanner } from '../components/ui/ErrorBanner';
 import { useProject } from '../context/ProjectContext';
+
+// maplibre chunk loads only when the dashboard's map panel mounts
+const ParcelMap = lazy(() => import('../components/maps/ParcelMap'));
 
 export default function Dashboard() {
   const { projectId } = useProject();
@@ -132,7 +134,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3">
           <h2 className="text-sm font-semibold text-slate-900 mb-2">Project Parcels Overview</h2>
-          <ParcelMap projectId={projectId ?? undefined} height="340px" />
+          <Suspense fallback={<div className="h-[340px] rounded-lg border border-slate-200 animate-pulse bg-white/[0.02] flex items-center justify-center text-xs text-slate-500">Loading map…</div>}>
+            <ParcelMap projectId={projectId ?? undefined} height="340px" />
+          </Suspense>
         </div>
         <div className="lg:col-span-2">
           <StagePipeline countsByStage={pipelineCounts} />

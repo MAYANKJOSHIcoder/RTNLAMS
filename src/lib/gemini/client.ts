@@ -4,7 +4,7 @@
  * Rate limit 15/min, retries 3, uses config.ts VITE_GEMINI_API_KEY via import.meta.env
  */
 import { config, isGeminiConfigured, isIndicTransConfigured } from '../config';
-import { createWorker, type Worker } from 'tesseract.js';
+import type { Worker } from 'tesseract.js';
 
 const RATE_LIMIT = 15;
 const WINDOW_MS = 60_000;
@@ -33,18 +33,21 @@ async function delay(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// Real Tesseract OCR (WASM, runs in a Web Worker; eng+hin+urd traineddata cached after first use)
+// Real Tesseract OCR (WASM, runs in a Web Worker; eng+hin+urd traineddata cached after first use).
+// tesseract.js is ~2MB — dynamically imported only when OCR actually runs, never on page load.
 let tesseractWorker: Promise<Worker> | null = null;
-export function tesseractReady(): Promise<boolean> {
-  tesseractWorker ??= createWorker(['eng', 'hin', 'urd']);
-  return tesseractWorker.then(() => true).catch(() => false);
+async function getTesseractWorker(): Promise<Worker> {
+  tesseractWorker ??= (async () => {
+    const { createWorker } = await import('tesseract.js');
+    return createWorker(['eng', 'hin', 'urd']);
+  })();
+  return tesseractWorker;
 }
 
 async function runTesseract(imageBase64: string, mimeType: string): Promise<string> {
   if (!imageBase64 || mimeType === 'application/pdf') return ''; // PDFs go straight to Gemini vision
   try {
-    tesseractWorker ??= createWorker(['eng', 'hin', 'urd']);
-    const worker = await tesseractWorker;
+    const worker = await getTesseractWorker();
     const { data: { text } } = await worker.recognize(`data:${mimeType};base64,${imageBase64}`);
     return text.trim();
   } catch (e) {

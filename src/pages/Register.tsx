@@ -13,7 +13,7 @@ const schema = z
     email: z.string().email('Enter a valid email').trim().min(1, 'Email is required'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirm_password: z.string().min(1, 'Confirm your password'),
-    cnic: z.string().trim().min(13, 'CNIC is required (13 digits, e.g. 35202-1234567-1)'),
+    aadhaar: z.string().trim().regex(/^\d{12}$/, 'Aadhaar must be exactly 12 digits (e.g. 100000000001)'),
   })
   .refine((d) => d.password === d.confirm_password, {
     path: ['confirm_password'],
@@ -33,7 +33,7 @@ export default function Register() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     mode: 'onBlur',
-    defaultValues: { full_name: '', email: '', password: '', confirm_password: '', cnic: '' },
+    defaultValues: { full_name: '', email: '', password: '', confirm_password: '', aadhaar: '' },
   });
 
   const onSubmit = async (data: FormData) => {
@@ -41,7 +41,7 @@ export default function Register() {
       full_name: data.full_name,
       email: data.email,
       password: data.password,
-      cnic: data.cnic,
+      aadhaar: data.aadhaar,
     });
     if (res?.error) {
       toast.error(res.error);
@@ -93,18 +93,20 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="cnic" className="block text-sm font-medium text-slate-700 mb-1">
-              CNIC <span className="text-red-600">*</span>
+            <label htmlFor="aadhaar" className="block text-sm font-medium text-slate-700 mb-1">
+              Aadhaar <span className="text-red-600">*</span>
             </label>
             <input
-              id="cnic"
-              placeholder="35202-1234567-1"
-              className={`w-full h-11 px-3 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8] ${errors.cnic ? 'border-red-500' : 'border-slate-300'}`}
-              aria-invalid={!!errors.cnic}
-              {...rhfReg('cnic')}
+              id="aadhaar"
+              inputMode="numeric"
+              maxLength={12}
+              placeholder="12-digit Aadhaar number"
+              className={`w-full h-11 px-3 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#38bdf8] ${errors.aadhaar ? 'border-red-500' : 'border-slate-300'}`}
+              aria-invalid={!!errors.aadhaar}
+              {...rhfReg('aadhaar')}
             />
-            {errors.cnic && <p role="alert" className="text-xs text-red-600 mt-1">{errors.cnic.message}</p>}
-            <p className="text-xs text-slate-400 mt-1">Accounts register as citizens; staff roles (admin, field officer, auditor) are assigned by an administrator.</p>
+            {errors.aadhaar && <p role="alert" className="text-xs text-red-600 mt-1">{errors.aadhaar.message}</p>}
+            <p className="text-xs text-slate-400 mt-1">Links you to your land parcels. Accounts register as citizens; staff roles are assigned by an administrator.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

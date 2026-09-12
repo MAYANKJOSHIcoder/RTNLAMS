@@ -4,10 +4,13 @@ import { useHearings } from "../hooks/useHearings";
 import HearingForm from "../components/hearings/HearingForm";
 import HearingCalendar from "../components/hearings/HearingCalendar";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
+import { useAuth } from "../context/AuthContext";
+import { can } from "../lib/permissions";
 import type { Hearing } from "../lib/types";
 
 export default function Hearings() {
   const { id: selectedId } = useParams();
+  const { profile } = useAuth();
   const { data: allHearings = [], isLoading, isError, error } = useHearings(selectedId);
   const [selectedHearing, setSelectedHearing] = useState<Hearing | null>(null);
 
@@ -18,7 +21,7 @@ export default function Hearings() {
         Hearings {selectedId ? `(Parcel: ${selectedId})` : "(All)"}
       </h1>
 
-      {selectedId ? (
+      {selectedId && can(profile?.role, 'hearing.schedule') ? (
         <HearingForm parcelId={selectedId} />
       ) : null}
 

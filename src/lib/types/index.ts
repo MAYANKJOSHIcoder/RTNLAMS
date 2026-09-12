@@ -59,7 +59,7 @@ export interface UserProfile {
   full_name: string;
   email?: string;
   role: UserRole;
-  cnic?: string | null;
+  aadhaar?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
   created_at: string; // ISO
@@ -85,7 +85,7 @@ export interface Parcel {
   project_id: string; // FK projects
   parcel_number: string; // e.g. DL-SURV-001
   owner_name: string;
-  owner_cnic: string | null; // citizen link for RLS
+  owner_aadhaar: string | null; // citizen link for RLS (12-digit)
   area_hectares: number;
   land_use: string | null;
   geometry: GeoJsonGeometry | null; // GEOMETRY(POLYGON,4326)

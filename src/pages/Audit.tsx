@@ -3,9 +3,12 @@ import { useAuditLogs } from "../hooks/useAudit";
 import AuditForm from "../components/audit/AuditForm";
 import AuditLog from "../components/audit/AuditLog";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
+import { useAuth } from "../context/AuthContext";
+import { can } from "../lib/permissions";
 
 export default function Audit() {
   const { id: selectedId } = useParams();
+  const { profile } = useAuth();
   const { data: logs = [], isLoading, refetch, isError, error } = useAuditLogs(selectedId);
 
   return (
@@ -15,7 +18,7 @@ export default function Audit() {
         Audit {selectedId ? `(Parcel: ${selectedId})` : "(All)"}
       </h1>
 
-      {selectedId ? (
+      {selectedId && can(profile?.role, 'audit.log') ? (
         <AuditForm parcelId={selectedId} onSuccess={() => refetch()} />
       ) : null}
 

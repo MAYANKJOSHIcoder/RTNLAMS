@@ -4,12 +4,12 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { calculateCompensation, LAND_USE_MULTIPLIER, nextPaymentStatus, slaDaysRemaining } from '../../lib/compensation';
-import type { CompensationAward } from '../../lib/types';
+import type { CompensationAward, PaymentStatus } from '../../lib/types';
 
 interface CompensationFormProps {
   award?: CompensationAward | null;
   parcel?: { area_hectares: number; land_use?: string | null };
-  onSave: (payload: { calculated_amount: number; awarded_amount: number; payment_status: string; multiplier: Record<string, unknown>; circle_rate_per_sqm: number; area_sqm: number }) => void;
+  onSave: (payload: { calculated_amount: number; awarded_amount: number; payment_status: PaymentStatus; multiplier: Record<string, unknown>; circle_rate_per_sqm: number; area_sqm: number }) => void;
   saving?: boolean;
 }
 
@@ -96,7 +96,7 @@ export default function CompensationForm({ award, parcel, onSave, saving }: Comp
           onSave({
             calculated_amount: calc.calculatedAmount,
             awarded_amount: awarded,
-            payment_status: award?.payment_status ?? 'pending',
+            payment_status: (award?.payment_status ?? 'pending') as PaymentStatus,
             multiplier: { landUse, marketMultiplier: Number(marketMult), manualOverride: useManual ? awarded : null, manualReason: reason || null },
             circle_rate_per_sqm: Number(circleRate),
             area_sqm: calc.areaSqm,

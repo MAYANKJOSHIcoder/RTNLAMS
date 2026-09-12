@@ -40,25 +40,40 @@ export function getNextStage(currentNumber: number): StageDefinition | undefined
   return getStageDef(currentNumber + 1);
 }
 
-// Validate transition: cannot skip stages; must complete previous
-export function canAdvance(stages: AcquisitionStage[], targetNumber: number): { ok: boolean; reason?: string } {
+// Validate a board drop: target column vs the parcel's current stage.
+// Semantics: drop on own column = no-op; drop on NEXT column = advance;
+// anything further lists exactly which stages remain; revert is blocked;
+// a breached current stage must be resolved first (resolve-then-advance).
+export function canAdvance(stages: AcquisitionStage[], targetNumber: number): { ok: boolean; noop?: boolean; reason?: string } {
   const sorted = [...stages].sort((a, b) => a.stage_number - b.stage_number);
+  const inProgress = sorted.find((s) => s.status === 'in_progress');
   const lastCompleted = sorted.filter((s) => s.status === 'completed').reduce((max, s) => Math.max(max, s.stage_number), 0);
-  // For initialization, stage 1 must be first
-  if (stages.length === 0) {
-    if (targetNumber !== 1) return { ok: false, reason: 'Start with stage 1 (Corridor Planning)' };
-    return { ok: true };
+
+  // Breached current stage: must resolve first
+  const breached = sorted.find((s) => s.status === 'breached');
+  if (breached) {
+    return { ok: false, reason: `Stage ${breached.stage_number} (${breached.stage_name}) breached SLA — resolve the breach first` };
   }
-  const current = sorted.find((s) => s.status === 'in_progress') ?? sorted[sorted.length - 1];
-  const expected = lastCompleted + 1;
-  // Allow re-advancing the in_progress stage to completed, or moving to next
-  if (targetNumber === expected || (current && targetNumber === current.stage_number)) return { ok: true };
-  if (targetNumber === expected + 1 && sorted.find((s) => s.stage_number === expected)?.status === 'completed') {
-    return { ok: true };
+
+  // No in_progress row (legacy data): derive the expected current
+  const cur = inProgress?.stage_number ?? Math.min(12, lastCompleted + 1);
+
+  if (targetNumber === cur) return { ok: true, noop: true };
+  if (targetNumber === cur + 1) return { ok: true };
+  if (targetNumber > cur + 1) {
+    const remaining = STAGES.filter((d) => d.stage_number > cur && d.stage_number < targetNumber).map((d) => `${d.stage_number} ${d.stage_name}`);
+    return { ok: false, reason: `Cannot skip — ${targetNumber - cur} stage${targetNumber - cur === 1 ? '' : 's'} remain first: ${remaining.join(', ')}` };
   }
-  if (targetNumber > expected) return { ok: false, reason: `Cannot skip stages — next is ${expected} (${getStageDef(expected)?.stage_name})` };
-  if (targetNumber < expected) return { ok: false, reason: 'Cannot revert to earlier stage' };
-  return { ok: true };
+  return { ok: false, reason: 'Cannot revert to an earlier stage' };
+}
+
+// Which drop targets are legal for a parcel (for board column highlighting)
+export function dropTargets(stages: AcquisitionStage[]): { current: number; next: number | null } {
+  const sorted = [...stages].sort((a, b) => a.stage_number - b.stage_number);
+  const inProgress = sorted.find((s) => s.status === 'in_progress');
+  const lastCompleted = sorted.filter((s) => s.status === 'completed').reduce((max, s) => Math.max(max, s.stage_number), 0);
+  const cur = inProgress?.stage_number ?? Math.min(12, lastCompleted + 1);
+  return { current: cur, next: cur < 12 ? cur + 1 : null };
 }
 
 // Initialize stages for new parcel (creates 12 rows with first in_progress, rest pending)

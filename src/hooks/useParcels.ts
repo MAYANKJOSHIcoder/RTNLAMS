@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
 import type { Parcel, FeatureCollection, MapFeature, GeoJsonGeometry } from '../lib/types';
-import { initializeStagesForParcel } from '../lib/stages';
 import { toast } from 'react-hot-toast';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -89,29 +88,29 @@ export function useCreateParcel() {
   return useMutation({
     mutationFn: async (parcel: Partial<Parcel>) => {
       if (!isSupabaseConfigured()) throw new Error('Database not connected');
-      // sanitize before insert
+      // sanitize before insert — 12 stage rows are created by the DB trigger
       const sanitized = {
         parcel_number: String(parcel.parcel_number ?? '').trim(),
         owner_name: String(parcel.owner_name ?? '').trim(),
+        owner_aadhaar: parcel.owner_aadhaar ? String(parcel.owner_aadhaar).trim() : null,
         area_hectares: Number(parcel.area_hectares ?? 0),
         project_id: parcel.project_id,
+        land_use: parcel.land_use ?? null,
+        village: parcel.village ?? null,
+        district: parcel.district ?? null,
+        state: parcel.state ?? null,
+        survey_number: parcel.survey_number ?? null,
         geometry: parcel.geometry,
-        status: parcel.status ?? 'identified',
       };
       const { data, error } = await supabase.from('parcels').insert(sanitized).select().single();
       if (error) throw new Error(error.message);
       return data as Parcel;
     },
-    onSuccess: async (newParcel) => {
-      // Auto-create 12 acquisition stages for the new parcel
-      if (isSupabaseConfigured()) {
-        const stages = initializeStagesForParcel(newParcel.id);
-        const { error: stagesErr } = await supabase.from('acquisition_stages').insert(stages);
-        if (stagesErr) console.warn('[parcels] failed to create stages:', stagesErr.message);
-      }
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['parcels'] });
       qc.invalidateQueries({ queryKey: ['stage-counts'] });
-      toast.success('Parcel created');
+      qc.invalidateQueries({ queryKey: ['stages'] });
+      toast.success('Parcel created — 12-stage lifecycle initialized');
     },
     onError: (e: Error) => toast.error(e.message),
   });

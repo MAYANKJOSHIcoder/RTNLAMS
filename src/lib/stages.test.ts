@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { STAGES, canAdvance, initializeStagesForParcel, isBreached, advanceStagePatch } from './stages';
+import { STAGES, canAdvance, dropTargets, isBreached, advanceStagePatch } from './stages';
 import type { AcquisitionStage } from './types';
 
 function stage(partial: Partial<AcquisitionStage> & { stage_number: number }): AcquisitionStage {
@@ -23,62 +23,89 @@ describe('STAGES', () => {
   });
 });
 
-describe('canAdvance', () => {
-  it('allows starting at stage 1 with no stages', () => {
-    expect(canAdvance([], 1)).toEqual({ ok: true });
+describe('canAdvance — board drop semantics', () => {
+  const p2Active = [
+    stage({ stage_number: 1, status: 'completed' }),
+    stage({ stage_number: 2, status: 'in_progress' }),
+    stage({ stage_number: 3, status: 'pending' }),
+  ];
+
+  it('drop on own column is a no-op success', () => {
+    const r = canAdvance(p2Active, 2);
+    expect(r.ok).toBe(true);
+    expect(r.noop).toBe(true);
   });
 
-  it('rejects skipping from empty stages', () => {
-    const r = canAdvance([], 2);
+  it('drop on next column advances', () => {
+    const r = canAdvance(p2Active, 3);
+    expect(r.ok).toBe(true);
+    expect(r.noop).toBeUndefined();
+  });
+
+  it('drop further ahead lists the remaining stages', () => {
+    const r = canAdvance(p2Active, 6);
     expect(r.ok).toBe(false);
-    expect(r.reason).toMatch(/stage 1/i);
+    expect(r.reason).toMatch(/3 Social Impact Assessment/);
+    expect(r.reason).toMatch(/4 Notification/);
+    expect(r.reason).toMatch(/5 Objection Handling/);
   });
 
-  it('allows advancing to the next stage after completion', () => {
-    const stages = [stage({ stage_number: 1, status: 'completed' })];
-    expect(canAdvance(stages, 2).ok).toBe(true);
-  });
-
-  it('rejects skipping ahead', () => {
-    const stages = [stage({ stage_number: 1, status: 'completed' })];
-    const r = canAdvance(stages, 3);
-    expect(r.ok).toBe(false);
-    expect(r.reason).toMatch(/skip/i);
-  });
-
-  it('rejects reverting to an earlier stage', () => {
-    const stages = [
-      stage({ stage_number: 1, status: 'completed' }),
-      stage({ stage_number: 2, status: 'completed' }),
-    ];
-    const r = canAdvance(stages, 1);
+  it('reverting is rejected', () => {
+    const r = canAdvance(p2Active, 1);
     expect(r.ok).toBe(false);
     expect(r.reason).toMatch(/revert/i);
   });
 
-  it('allows completing the current in_progress stage', () => {
-    const stages = [
+  it('a breached stage blocks advancing until resolved', () => {
+    const breached = [
       stage({ stage_number: 1, status: 'completed' }),
-      stage({ stage_number: 2, status: 'in_progress' }),
+      stage({ stage_number: 2, status: 'breached', sla_deadline: '2000-01-01T00:00:00Z' }),
+      stage({ stage_number: 3, status: 'pending' }),
     ];
-    expect(canAdvance(stages, 2).ok).toBe(true);
+    const r = canAdvance(breached, 3);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/breached SLA — resolve/i);
+  });
+
+  it('with no in_progress row, derives current from last completed', () => {
+    const legacy = [
+      stage({ stage_number: 1, status: 'completed' }),
+      stage({ stage_number: 2, status: 'pending' }),
+    ];
+    // derived current = lastCompleted(1) + 1 = 2 (the pending row)
+    expect(canAdvance(legacy, 2).ok).toBe(true);
+    expect(canAdvance(legacy, 2).noop).toBe(true); // own column = nothing to do
+    expect(canAdvance(legacy, 3).ok).toBe(true); // next of derived current
+    expect(canAdvance(legacy, 4).ok).toBe(false); // 2 ahead of derived current
+    expect(canAdvance(legacy, 1).ok).toBe(false); // revert of derived current
+  });
+
+  it('stage 12 completing: next is null, drop on 12 is a no-op', () => {
+    const endgame = [
+      stage({ stage_number: 11, status: 'completed' }),
+      stage({ stage_number: 12, status: 'in_progress' }),
+    ];
+    expect(canAdvance(endgame, 12).noop).toBe(true);
   });
 });
 
-describe('initializeStagesForParcel', () => {
-  it('creates 12 rows with stage 1 in_progress and the rest pending', () => {
-    const rows = initializeStagesForParcel('parcel-1');
-    expect(rows).toHaveLength(12);
-    expect(rows[0].status).toBe('in_progress');
-    expect(rows[0].parcel_id).toBe('parcel-1');
-    rows.slice(1).forEach((r) => expect(r.status).toBe('pending'));
+describe('dropTargets', () => {
+  it('returns current and next column', () => {
+    const t = dropTargets([
+      stage({ stage_number: 1, status: 'completed' }),
+      stage({ stage_number: 2, status: 'in_progress' }),
+    ]);
+    expect(t.current).toBe(2);
+    expect(t.next).toBe(3);
   });
 
-  it('sets SLA deadlines only for stages that have sla_days', () => {
-    const rows = initializeStagesForParcel('parcel-1', '2026-01-01T00:00:00Z');
-    expect(rows[0].sla_deadline).toBeNull(); // Corridor Planning
-    expect(rows[1].sla_deadline).toBe('2026-01-16T00:00:00.000Z'); // +15 days
-    expect(rows[11].sla_deadline).toBeNull(); // Satellite Monitoring
+  it('returns null next at stage 12', () => {
+    const t = dropTargets([
+      stage({ stage_number: 11, status: 'completed' }),
+      stage({ stage_number: 12, status: 'in_progress' }),
+    ]);
+    expect(t.current).toBe(12);
+    expect(t.next).toBeNull();
   });
 });
 

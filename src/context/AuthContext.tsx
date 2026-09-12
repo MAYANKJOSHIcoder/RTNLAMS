@@ -13,7 +13,7 @@ export interface AuthState {
 export interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
-  register: (data: { full_name: string; email: string; password: string; cnic?: string }) => Promise<{ error?: string }>;
+  register: (data: { full_name: string; email: string; password: string; aadhaar?: string }) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -101,16 +101,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
-  const register = async (data: { full_name: string; email: string; password: string; cnic?: string }) => {
+  const register = async (data: { full_name: string; email: string; password: string; aadhaar?: string }) => {
     if (!isSupabaseConfigured()) return { error: 'Supabase not configured — fill .env and restart.' };
-    const { full_name, email, password, cnic } = data;
+    const { full_name, email, password, aadhaar } = data;
     const sanitizedEmail = email.trim().toLowerCase();
     const sanitizedName = full_name.trim();
     if (!sanitizedName || !sanitizedEmail || !password) return { error: 'All fields required' };
     // Role is always 'citizen' — the handle_new_user() DB trigger creates the profile row.
     // Staff roles are assigned via scripts/set-role.mjs (service key), never client-side.
     const meta: Record<string, string> = { full_name: sanitizedName, role: 'citizen' };
-    if (cnic) meta.cnic = cnic.trim();
+    if (aadhaar) meta.aadhaar = aadhaar.trim();
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: sanitizedEmail,
       password,

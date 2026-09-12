@@ -23,7 +23,8 @@ import StageBoard from '../components/parcels/StageBoard';
 import DocumentList from '../components/documents/DocumentList';
 import { useProject } from '../context/ProjectContext';
 import type { Parcel, AcquisitionStage } from '../lib/types';
-import { canAdvance, STAGES } from '../lib/stages';
+import { can } from '../lib/permissions';
+import { STAGES } from '../lib/stages';
 
 const TABS = ['Overview', 'Documents', 'Timeline', 'Hearings', 'Compensation', 'Audit'] as const;
 
@@ -31,8 +32,8 @@ export default function Parcels() {
   const { projectId } = useProject();
   const { profile } = useAuth();
   const navigate = useNavigate();
-  const canCreate = ['admin', 'field_officer'].includes(profile?.role ?? '');
-  const canAudit = ['admin', 'auditor'].includes(profile?.role ?? '');
+  const canCreate = can(profile?.role, 'parcel.create');
+  const canAudit = can(profile?.role, 'audit.log');
   const { data: parcels = [], isLoading, isError, error: parcelsError } = useParcels(null, projectId ?? undefined);
   const createParcel = useCreateParcel();
   const advanceStage = useAdvanceStage();
@@ -117,6 +118,7 @@ export default function Parcels() {
 
   const handleStageClick = (stage: AcquisitionStage | undefined, def: typeof STAGES[0]) => {
     if (!stage || !selected) return;
+    if (!can(profile?.role, 'stage.advance')) return;
     // Only allow advancing the current in_progress stage
     if (stage.status !== 'in_progress') return;
     setAdvanceConfirm({ stage, def });
@@ -125,15 +127,8 @@ export default function Parcels() {
   const confirmAdvance = () => {
     if (!advanceConfirm || !selected) return;
     const { stage, def } = advanceConfirm;
-    // Validate can advance
-    const check = canAdvance(stages, def.stage_number);
-    if (!check.ok) {
-      toast.error(check.reason ?? 'Cannot advance');
-      setAdvanceConfirm(null);
-      return;
-    }
     advanceStage.mutate(
-      { stageId: stage.id, parcelId: selected.id, currentStages: stages, targetNumber: def.stage_number },
+      { stageId: stage.id, parcelId: selected.id },
       {
         onSuccess: () => {
           toast.success(`Advanced to ${def.stage_name}`);
@@ -175,16 +170,20 @@ export default function Parcels() {
           <option value="high">High</option>
           <option value="critical">Critical</option>
         </select>
-        <label
-          className={`h-10 px-3 border border-slate-300 rounded-lg text-sm flex items-center gap-1 ${projectId ? 'bg-[#0c0c0c] cursor-pointer hover:bg-white/[0.04]' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
-          title={projectId ? undefined : 'Select a project first'}
-        >
-          <Upload size={14} /> Bulk CSV
-          <input type="file" accept=".csv" className="hidden" disabled={!projectId} onChange={(e) => handleCsv(e.target.files?.[0] ?? null)} />
-        </label>
-        <span title={projectId ? undefined : 'Select a project first'}>
-          <Button onClick={() => setShowAdd(true)} disabled={!projectId} leftIcon={<Plus size={16} />}>Add New Parcel</Button>
-        </span>
+        {canCreate && (
+          <label
+            className={`h-10 px-3 border border-slate-300 rounded-lg text-sm flex items-center gap-1 ${projectId ? 'bg-[#0c0c0c] cursor-pointer hover:bg-white/[0.04]' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+            title={projectId ? undefined : 'Select a project first'}
+          >
+            <Upload size={14} /> Bulk CSV
+            <input type="file" accept=".csv" className="hidden" disabled={!projectId} onChange={(e) => handleCsv(e.target.files?.[0] ?? null)} />
+          </label>
+        )}
+        {canCreate && (
+          <span title={projectId ? undefined : 'Select a project first'}>
+            <Button onClick={() => setShowAdd(true)} disabled={!projectId} leftIcon={<Plus size={16} />}>Add New Parcel</Button>
+          </span>
+        )}
         <div className="flex rounded-lg border border-slate-300 overflow-hidden">
           {(['table', 'board'] as const).map((v) => (
             <button
@@ -302,7 +301,7 @@ export default function Parcels() {
             )}
             {tab === 'Documents' && (
               <div className="space-y-3">
-                {canCreate && (
+                {can(profile?.role, 'document.upload') && (
                   <Button size="sm" leftIcon={<Upload size={14} />} onClick={() => navigate(`/documents/${selected.id}`)}>
                     Upload Document
                   </Button>
@@ -313,7 +312,7 @@ export default function Parcels() {
             {tab === 'Timeline' && <StageTimeline stages={stages} onStageClick={handleStageClick} />}
             {tab === 'Hearings' && (
               <div className="space-y-2">
-                {canCreate && (
+                {can(profile?.role, 'hearing.schedule') && (
                   <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => navigate(`/hearings/${selected.id}`)}>
                     Schedule Hearing
                   </Button>
@@ -323,7 +322,7 @@ export default function Parcels() {
             )}
             {tab === 'Compensation' && (
               <div className="space-y-2">
-                {canCreate && (
+                {can(profile?.role, 'award.record') && (
                   <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => navigate(`/compensation/${selected.id}`)}>
                     Record Award
                   </Button>

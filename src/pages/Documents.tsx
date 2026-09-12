@@ -5,10 +5,13 @@ import DocumentUpload from "../components/documents/DocumentUpload";
 import DocumentList from "../components/documents/DocumentList";
 import DocumentDetail from "../components/documents/DocumentDetail";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
+import { useAuth } from "../context/AuthContext";
+import { can } from "../lib/permissions";
 import type { Document as DocType } from "../lib/types";
 
 export default function Documents() {
   const { id: selectedId } = useParams();
+  const { profile } = useAuth();
   const { data: docs = [], isLoading, refetch, isError, error } = useDocuments(selectedId);
   const [viewDoc, setViewDoc] = useState<DocType | null>(null);
 
@@ -21,7 +24,7 @@ export default function Documents() {
         Documents {selectedId ? `(Parcel: ${selectedId})` : "(All)"}
       </h1>
 
-      {selectedId ? (
+      {selectedId && can(profile?.role, 'document.upload') ? (
         <DocumentUpload parcelId={selectedId} onUploaded={() => refetch()} />
       ) : null}
 

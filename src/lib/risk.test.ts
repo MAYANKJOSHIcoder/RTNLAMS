@@ -8,7 +8,7 @@ function parcel(partial: Partial<Parcel> = {}): Parcel {
     project_id: 'proj',
     parcel_number: 'DL-001',
     owner_name: 'Test Owner',
-    owner_cnic: 'CNIC123',
+    owner_aadhaar: '100000000001',
     area_hectares: 2,
     status: 'identified',
     risk_score: null,
@@ -48,7 +48,7 @@ describe('classifyRisk', () => {
 });
 
 describe('calculateRisk — missing data', () => {
-  it('defaults to middle-of-road with CNIC but an unverified doc', () => {
+  it('defaults to middle-of-road with aadhaar but an unverified doc', () => {
     const r = calculateRisk({
       ...emptyInput(parcel()),
       documents: [{ id: 'd1', doc_type: 'deed', status: 'uploaded', ocr_confidence: 0.5 } as never],
@@ -66,8 +66,8 @@ describe('calculateRisk — missing data', () => {
     expect(r.overall_risk).toBeLessThanOrEqual(1);
   });
 
-  it('escalates ownership when owner_cnic missing', () => {
-    const r = calculateRisk(emptyInput(parcel({ owner_cnic: null })));
+  it('escalates ownership when owner_aadhaar missing', () => {
+    const r = calculateRisk(emptyInput(parcel({ owner_aadhaar: null })));
     expect(r.ownership_score).toBe(0.7);
   });
 

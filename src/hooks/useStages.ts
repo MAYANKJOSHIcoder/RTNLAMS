@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
 import type { AcquisitionStage } from '../lib/types';
-import { canAdvance, STAGES, getStageDef, calculateDeadline, markBreachedIfNeeded } from '../lib/stages';
 import toast from 'react-hot-toast';
 import { useRecalcRiskForParcel } from './useRisk';
 
@@ -19,46 +18,35 @@ export function useStages(parcelId?: string) {
   });
 }
 
+// All stages (board view) — grouped client-side
+export function useAllStages(enabled = true) {
+  return useQuery({
+    queryKey: ['stages', 'board'],
+    enabled,
+    queryFn: async () => {
+      if (!isSupabaseConfigured()) return [] as AcquisitionStage[];
+      const { data, error } = await supabase.from('acquisition_stages').select('*');
+      if (error) throw new Error(error.message);
+      return (data ?? []) as AcquisitionStage[];
+    },
+  });
+}
+
+// Advance: single atomic RPC — completes the in_progress stage, starts the next
 export function useAdvanceStage() {
   const qc = useQueryClient();
   const recalcRisk = useRecalcRiskForParcel();
   return useMutation({
-    mutationFn: async ({ stageId, parcelId, currentStages, targetNumber }: { stageId: string; parcelId: string; currentStages: AcquisitionStage[]; targetNumber?: number }) => {
+    mutationFn: async ({ stageId }: { stageId: string; parcelId: string }) => {
       if (!isSupabaseConfigured()) throw new Error('Database not connected');
-      // Validation: can't skip
-      if (targetNumber != null) {
-        const check = canAdvance(currentStages, targetNumber);
-        if (!check.ok) throw new Error(check.reason);
-      }
-      const { data, error } = await supabase.from('acquisition_stages').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', stageId).select().single();
+      const { data, error } = await supabase.rpc('advance_parcel_stage', { p_stage_id: stageId });
       if (error) throw new Error(error.message);
-      // Auto-move next stage to in_progress if exists
-      const nextNum = (targetNumber ?? (currentStages.find((s) => s.id === stageId)?.stage_number ?? 0)) + 1;
-      const next = currentStages.find((s) => s.stage_number === nextNum);
-      if (next) {
-        const { error: nextErr } = await supabase.from('acquisition_stages').update({ status: 'in_progress' }).eq('id', next.id);
-        if (nextErr) throw new Error(`Next stage not started: ${nextErr.message}`);
-      } else if (nextNum <= STAGES.length) {
-        // Stage row was never created (e.g., partial init) — create it as in_progress
-        const def = getStageDef(nextNum);
-        if (def) {
-          const { error: createErr } = await supabase.from('acquisition_stages').insert({
-            parcel_id: parcelId,
-            stage_number: def.stage_number,
-            stage_name: def.stage_name,
-            status: 'in_progress',
-            sla_deadline: calculateDeadline(new Date(), def.sla_days),
-          });
-          if (createErr) throw new Error(`Next stage not created: ${createErr.message}`);
-        }
-      }
-      // Invalidate for parcel
-      void parcelId;
       return data as AcquisitionStage;
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['stages'] });
       qc.invalidateQueries({ queryKey: ['parcels'] });
+      qc.invalidateQueries({ queryKey: ['stage-counts'] });
       toast.success('Stage advanced');
       recalcRisk.mutate(vars.parcelId);
     },
@@ -66,23 +54,42 @@ export function useAdvanceStage() {
   });
 }
 
-// SLA monitoring: fetch stages breaching deadline, persist 'breached' status once
+// Resolve a breached stage: back to in_progress with a new deadline + note
+export function useResolveBreach() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ stageId, newDeadline }: { stageId: string; newDeadline: string }) => {
+      if (!isSupabaseConfigured()) throw new Error('Database not connected');
+      const { data, error } = await supabase.rpc('resolve_breached_stage', {
+        p_stage_id: stageId,
+        p_new_deadline: newDeadline,
+      });
+      if (error) throw new Error(error.message);
+      return data as AcquisitionStage;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['stages'] });
+      qc.invalidateQueries({ queryKey: ['sla-breaches'] });
+      qc.invalidateQueries({ queryKey: ['parcels'] });
+      toast.success('Breach resolved — stage back in progress');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// SLA monitoring: mark overdue in_progress → breached via RPC (idempotent),
+// then fetch all unresolved breaches. RPC path works for FO sessions
+// (they have no direct write on acquisition_stages).
 export function useSlaBreaches() {
   return useQuery({
     queryKey: ['sla-breaches'],
     queryFn: async () => {
       if (!isSupabaseConfigured()) return [] as AcquisitionStage[];
-      const { data, error } = await supabase
-        .from('acquisition_stages')
-        .select('*')
-        .in('status', ['pending', 'in_progress'])
-        .lt('sla_deadline', new Date().toISOString());
+      const { error: markErr } = await supabase.rpc('mark_overdue_breached');
+      if (markErr) console.warn('[sla] mark_overdue_breached failed:', markErr.message);
+      const { data, error } = await supabase.from('acquisition_stages').select('*').eq('status', 'breached');
       if (error) throw new Error(error.message);
-      const breaches = (data ?? []) as AcquisitionStage[];
-      // ponytail: client-side persist on dashboard poll; a DB cron would be better at scale
-      const ids = breaches.filter((b) => markBreachedIfNeeded(b) === 'breached').map((b) => b.id);
-      if (ids.length) await supabase.from('acquisition_stages').update({ status: 'breached' }).in('id', ids);
-      return breaches;
+      return (data ?? []) as AcquisitionStage[];
     },
     refetchInterval: 60_000,
   });

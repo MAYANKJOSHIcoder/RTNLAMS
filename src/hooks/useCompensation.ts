@@ -63,23 +63,23 @@ export function useUpdateCompensation() {
   });
 }
 
-export function usePaymentStatus() {
+// Payment transitions go through the set_payment_status RPC (state machine +
+// UTR enforcement live server-side; works on any award for admin/FO)
+export function useSetPaymentStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, status, reference }: { id: string; status: PaymentStatus; reference?: string }) => {
+    mutationFn: async ({ id, status, utr }: { id: string; status: PaymentStatus; utr?: string }) => {
       if (!isSupabaseConfigured()) throw new Error('Database not connected');
-      const patch: Partial<CompensationAward> = { payment_status: status };
-      if (status === 'completed') {
-        patch.payment_date = new Date().toISOString();
-        if (reference) patch.payment_reference = String(reference).trim();
-      }
-      if (status === 'initiated') patch.payment_date = new Date().toISOString();
-      const { data, error } = await supabase.from('compensation_awards').update(patch).eq('id', id).select().single();
+      const { data, error } = await supabase.rpc('set_payment_status', {
+        p_award_id: id,
+        p_status: status,
+        p_utr: utr ?? null,
+      });
       if (error) throw new Error(error.message);
       return data as CompensationAward;
     },
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ['compensation', data.parcel_id] });
+      qc.invalidateQueries({ queryKey: ['compensation'] });
       toast.success(`Payment ${data.payment_status}`);
     },
     onError: (e: Error) => toast.error(e.message),

@@ -48,9 +48,9 @@ export function parseAreaHa(value: unknown): number | null {
 export function calculateRisk(input: RiskInput): Omit<RiskAssessment, 'id' | 'assessed_at'> & { factors: Record<string, unknown> } {
   const { parcel, documents, stages, auditLogs } = input;
 
-  // 1. Ownership score: 0 = clean (has owner_cnic + verified doc), 1 = risky (missing cnic / no deed)
+  // 1. Ownership score: 0 = clean (has owner_aadhaar + verified doc), 1 = risky (missing aadhaar / no deed)
   let ownership = 0.5;
-  if (!parcel.owner_cnic) ownership = 0.7;
+  if (!parcel.owner_aadhaar) ownership = 0.7;
   else {
     const hasVerifiedDeed = documents.some((d) => d.doc_type === 'deed' && d.status === 'verified');
     ownership = hasVerifiedDeed ? 0.1 : documents.length === 0 ? 0.8 : 0.5;

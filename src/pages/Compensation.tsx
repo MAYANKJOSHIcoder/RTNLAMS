@@ -1,18 +1,24 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { useCompensation, useCreateCompensation, useUpdateCompensation, usePaymentStatus } from "../hooks/useCompensation";
+import { useCompensation, useCreateCompensation, useUpdateCompensation, useSetPaymentStatus } from "../hooks/useCompensation";
 import { useParcels } from "../hooks/useParcels";
 import CompensationForm from "../components/compensation/CompensationForm";
 import PaymentDashboard from "../components/compensation/PaymentDashboard";
+import PaymentModal from "../components/compensation/PaymentModal";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
-import type { PaymentStatus } from "../lib/types";
+import { useAuth } from "../context/AuthContext";
+import { can } from "../lib/permissions";
+import type { CompensationAward } from "../lib/types";
 
 export default function Compensation() {
   const { id: selectedId } = useParams();
+  const { profile } = useAuth();
   const { data: awards = [], isLoading, isError, error } = useCompensation(selectedId);
   const { data: parcels = [] } = useParcels();
   const createAward = useCreateCompensation();
   const updateAward = useUpdateCompensation();
-  const setPayment = usePaymentStatus();
+  const setPayment = useSetPaymentStatus();
+  const [payTarget, setPayTarget] = useState<CompensationAward | null>(null);
   const existingAward = awards[0] ?? null;
   const parcel = parcels.find((p) => p.id === selectedId);
 
@@ -23,27 +29,43 @@ export default function Compensation() {
         Compensation {selectedId ? `(Parcel: ${selectedId})` : "(All)"}
       </h1>
 
-      {selectedId ? (
+      {selectedId && can(profile?.role, 'award.record') ? (
         <CompensationForm
           award={existingAward}
           parcel={parcel ? { area_hectares: parcel.area_hectares, land_use: parcel.land_use } : undefined}
           onSave={(payload) => {
-            const typed = { ...payload, payment_status: payload.payment_status as PaymentStatus };
             if (existingAward) {
-              updateAward.mutate({ id: existingAward.id, ...typed });
+              updateAward.mutate({ id: existingAward.id, ...payload });
             } else {
-              createAward.mutate({ parcel_id: selectedId, ...typed });
+              createAward.mutate({ parcel_id: selectedId, ...payload });
             }
           }}
           saving={createAward.isPending || updateAward.isPending}
         />
       ) : null}
 
-      <PaymentDashboard awards={awards ?? []} onAdvancePayment={(a) => {
-        const next: PaymentStatus = a.payment_status === 'pending' ? 'initiated' : 'completed';
-        const reference = next === 'completed' ? window.prompt('Payment reference (UTR / transaction ID)?') ?? undefined : undefined;
-        setPayment.mutate({ id: a.id, status: next, reference });
-      }} />
+      <PaymentDashboard
+        awards={awards ?? []}
+        onAdvancePayment={can(profile?.role, 'payment.advance') ? (a) => {
+          if (a.payment_status === 'pending') {
+            // pending → initiated needs no UTR
+            setPayment.mutate({ id: a.id, status: 'initiated' });
+          } else {
+            setPayTarget(a); // initiated → completed opens the UTR modal
+          }
+        } : undefined}
+      />
+
+      <PaymentModal
+        award={payTarget}
+        onClose={() => setPayTarget(null)}
+        onConfirm={(utr) => {
+          if (payTarget) {
+            setPayment.mutate({ id: payTarget.id, status: 'completed', utr });
+          }
+          setPayTarget(null);
+        }}
+      />
 
       {!selectedId && (
         <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4">

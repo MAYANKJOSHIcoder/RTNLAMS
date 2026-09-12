@@ -17,14 +17,15 @@ import { Table } from '../components/ui/Table';
 import { Badge, statusToBadgeVariant } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
-import { Input } from '../components/ui/Input';
 import StageTimeline from '../components/parcels/StageTimeline';
 import StageBoard from '../components/parcels/StageBoard';
+import AddParcelModal from '../components/parcels/AddParcelModal';
 import DocumentList from '../components/documents/DocumentList';
 import { useProject } from '../context/ProjectContext';
 import type { Parcel, AcquisitionStage } from '../lib/types';
 import { can } from '../lib/permissions';
 import { STAGES } from '../lib/stages';
+import { AREA_UNITS, UNIT_LABELS, formatArea, toHectares, SQM_PER_UNIT, type AreaUnit } from '../lib/units';
 
 const TABS = ['Overview', 'Documents', 'Timeline', 'Hearings', 'Compensation', 'Audit'] as const;
 
@@ -48,7 +49,7 @@ export default function Parcels() {
   const [page, setPage] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
   const [view, setView] = useState<'table' | 'board'>('table');
-  const [addForm, setAddForm] = useState({ parcel_number: '', owner_name: '', area_hectares: '' });
+  const [areaUnit, setAreaUnit] = useState<AreaUnit>('hectare');
   const pageSize = 8;
 
   const filtered = useMemo(() => {
@@ -79,41 +80,67 @@ export default function Parcels() {
   const { data: audits = [] } = useAuditLogs(selected?.id);
   const { data: risks = [] } = useRiskAssessments(selected?.id);
 
-  const handleCsv = (file: File | null) => {
+  const handleCsv = async (file: File | null) => {
     if (!file) return;
     if (!projectId) {
       toast.error('Select a project before bulk import');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = String(e.target?.result ?? '');
-      const lines = text.split('\n').filter(Boolean);
-      const headers = lines[0]?.split(',').map((h) => h.trim().toLowerCase());
-      const idxNum = headers.indexOf('parcel_number');
-      const idxOwner = headers.indexOf('owner_name');
-      const idxArea = headers.indexOf('area_hectares');
-      if (idxNum === -1 || idxOwner === -1) {
-        toast.error('CSV must have parcel_number, owner_name, area_hectares columns');
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    const headers = lines[0]?.split(',').map((h) => h.trim().toLowerCase());
+    const idxNum = headers.indexOf('parcel_number');
+    const idxOwner = headers.indexOf('owner_name');
+    const idxAadhaar = headers.indexOf('owner_aadhaar');
+    const idxArea = headers.indexOf('area');
+    const idxUnit = headers.indexOf('area_unit');
+    if (idxNum === -1 || idxOwner === -1 || idxArea === -1) {
+      toast.error('CSV must have parcel_number, owner_name, area columns (optional: owner_aadhaar, area_unit)');
+      return;
+    }
+    const toCreate: { payload: Partial<Parcel>; area: number; unit: string }[] = [];
+    const invalid: string[] = [];
+    lines.slice(1).forEach((line, i) => {
+      const cols = line.split(',').map((c) => c.trim());
+      const unit = (cols[idxUnit] || 'hectare').toLowerCase();
+      const aadhaar = idxAadhaar >= 0 ? cols[idxAadhaar] : '';
+      const area = Number(cols[idxArea]);
+      if (!cols[idxNum] || !cols[idxOwner] || !Number.isFinite(area) || area <= 0) {
+        invalid.push(`row ${i + 2}`);
         return;
       }
-      const toCreate = lines.slice(1).map((line) => {
-        const cols = line.split(',').map((c) => c.trim());
-        return {
+      if (aadhaar && !/^\d{12}$/.test(aadhaar)) {
+        invalid.push(`row ${i + 2} (aadhaar not 12 digits)`);
+        return;
+      }
+      if (!(unit in SQM_PER_UNIT)) {
+        invalid.push(`row ${i + 2} (unknown unit "${unit}")`);
+        return;
+      }
+      toCreate.push({
+        payload: {
           parcel_number: cols[idxNum],
           owner_name: cols[idxOwner],
-          area_hectares: Number(cols[idxArea] ?? 1),
+          owner_aadhaar: aadhaar || null,
+          area_hectares: toHectares(area, unit as AreaUnit),
           project_id: projectId,
-          status: 'identified' as const,
           geometry: null,
-        };
+        },
+        area,
+        unit,
       });
-      toCreate.forEach((p) => {
-        if (p.parcel_number && p.owner_name) createParcel.mutate(p as unknown as Parcel);
-      });
-      toast.success(`Queued ${toCreate.length} parcels from CSV`);
-    };
-    reader.readAsText(file);
+    });
+    if (invalid.length) toast.error(`Skipped: ${invalid.join(', ')}`);
+    if (!toCreate.length) {
+      toast.error('Nothing to create — check CSV columns');
+      return;
+    }
+    const results = await Promise.allSettled(
+      toCreate.map((c) => createParcel.mutateAsync(c.payload)),
+    );
+    const ok = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.length - ok;
+    toast.success(`Created ${ok} parcels${failed ? `, ${failed} failed` : ''}`);
   };
 
   const handleStageClick = (stage: AcquisitionStage | undefined, def: typeof STAGES[0]) => {
@@ -184,6 +211,16 @@ export default function Parcels() {
             <Button onClick={() => setShowAdd(true)} disabled={!projectId} leftIcon={<Plus size={16} />}>Add New Parcel</Button>
           </span>
         )}
+        <select
+          value={areaUnit}
+          onChange={(e) => setAreaUnit(e.target.value as AreaUnit)}
+          title="Area display unit"
+          className="h-10 px-2 border border-slate-300 rounded-lg text-xs bg-[#0c0c0c] cursor-pointer"
+        >
+          {AREA_UNITS.map((u) => (
+            <option key={u} value={u}>{UNIT_LABELS[u]}</option>
+          ))}
+        </select>
         <div className="flex rounded-lg border border-slate-300 overflow-hidden">
           {(['table', 'board'] as const).map((v) => (
             <button
@@ -220,7 +257,7 @@ export default function Parcels() {
                     header: 'Status',
                     render: (r) => <Badge variant={statusToBadgeVariant(String((r as unknown as Parcel).status))}>{String((r as unknown as Parcel).status)}</Badge>,
                   },
-                  { key: 'area_hectares', header: 'Area ha', sortable: true, accessor: (r) => String((r as unknown as Parcel).area_hectares) },
+                  { key: 'area_hectares', header: 'Area', sortable: true, accessor: (r) => String((r as unknown as Parcel).area_hectares), render: (r) => formatArea((r as unknown as Parcel).area_hectares, areaUnit) },
                   {
                     key: 'risk_score',
                     header: 'Risk',
@@ -292,7 +329,7 @@ export default function Parcels() {
             {tab === 'Overview' && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div><div className="text-slate-500 text-xs">Owner</div><div className="font-medium">{selected.owner_name}</div></div>
-                <div><div className="text-slate-500 text-xs">Area</div><div className="font-medium">{selected.area_hectares} ha</div></div>
+                <div><div className="text-slate-500 text-xs">Area</div><div className="font-medium">{formatArea(selected.area_hectares, areaUnit)}</div></div>
                 <div><div className="text-slate-500 text-xs">Status</div><Badge variant={statusToBadgeVariant(selected.status)}>{selected.status}</Badge></div>
                 <div><div className="text-slate-500 text-xs">Risk</div><div className="font-medium">{selected.risk_score ?? '-'}</div></div>
                 <div><div className="text-slate-500 text-xs">Risk Level</div><div>{risks[0]?.risk_level ?? '-'}</div></div>
@@ -346,46 +383,17 @@ export default function Parcels() {
       )}
 
       {/* Add parcel modal */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add New Parcel">
-        <div className="space-y-3">
-          <Input label="Parcel number" requiredIndicator value={addForm.parcel_number} onChange={(e) => setAddForm((p) => ({ ...p, parcel_number: e.target.value }))} />
-          <Input label="Owner name" requiredIndicator value={addForm.owner_name} onChange={(e) => setAddForm((p) => ({ ...p, owner_name: e.target.value }))} />
-          <Input label="Area (hectares)" type="number" value={addForm.area_hectares} onChange={(e) => setAddForm((p) => ({ ...p, area_hectares: e.target.value }))} />
-          <Button
-            onClick={() => {
-              if (!projectId) {
-                toast.error('Select a project first');
-                return;
-              }
-              if (!addForm.parcel_number.trim() || !addForm.owner_name.trim()) {
-                toast.error('Parcel number and owner required');
-                return;
-              }
-              createParcel.mutate(
-                {
-                  parcel_number: addForm.parcel_number.trim(),
-                  owner_name: addForm.owner_name.trim(),
-                  area_hectares: Number(addForm.area_hectares || 1),
-                  project_id: projectId ?? '',
-                  status: 'identified',
-                  geometry: null,
-                } as unknown as Parcel,
-                {
-                  onSuccess: () => {
-                    setShowAdd(false);
-                    setAddForm({ parcel_number: '', owner_name: '', area_hectares: '' });
-                  },
-                },
-              );
-            }}
-            loading={createParcel.isPending}
-            className="w-full"
-          >
-            Create Parcel
-          </Button>
-          <div className="text-xs text-slate-500">CSV bulk: columns parcel_number, owner_name, area_hectares</div>
-        </div>
-      </Modal>
+      <AddParcelModal
+        open={showAdd}
+        projectId={projectId ?? null}
+        onClose={() => setShowAdd(false)}
+        creating={createParcel.isPending}
+        onCreate={(p) => {
+          createParcel.mutate(p as Partial<Parcel>, {
+            onSuccess: () => setShowAdd(false),
+          });
+        }}
+      />
 
       {/* Advance stage confirmation modal */}
       {advanceConfirm && (

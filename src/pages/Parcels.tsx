@@ -1,5 +1,5 @@
-import { useState, useMemo, Suspense, lazy } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, Suspense, lazy, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Plus, Upload, MapPin, AlertTriangle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useDebounce } from '../hooks/useDebounce';
@@ -53,6 +53,16 @@ export default function Parcels() {
   const [view, setView] = useState<'table' | 'board'>('table');
   const [areaUnit, setAreaUnit] = useState<AreaUnit>('hectare');
   const pageSize = 8;
+  const [searchParams] = useSearchParams();
+
+  // Deep link from citizen roadmap: /parcels?parcel={id} pre-selects the parcel
+  useEffect(() => {
+    const target = searchParams.get('parcel');
+    if (!target) return;
+    const p = parcels.find((x) => x.id === target);
+    if (p) setSelected(p);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, parcels]);
 
   const filtered = useMemo(() => {
     return parcels.filter((p) => {

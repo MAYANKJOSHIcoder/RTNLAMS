@@ -12,12 +12,21 @@ import ActivityFeed, { type ActivityItem } from '../components/dashboard/Activit
 import RiskAlerts from '../components/dashboard/RiskAlerts';
 import { ErrorBanner } from '../components/ui/ErrorBanner';
 import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
+import CitizenDashboard from '../components/dashboard/CitizenDashboard';
 
 // maplibre chunk loads only when the dashboard's map panel mounts
 const ParcelMap = lazy(() => import('../components/maps/ParcelMap'));
 
 export default function Dashboard() {
   const { projectId } = useProject();
+  const { profile } = useAuth();
+
+  // Citizens get the roadmap view — no staff KPIs, map, or SLA panel
+  if (profile?.role === 'citizen') {
+    return <div className="p-4 md:p-6 max-w-4xl mx-auto"><CitizenDashboard /></div>;
+  }
+
   const { data: parcels = [], refetch: refetchParcels, isError, error } = useParcels(null, projectId ?? undefined);
   const { data: slaBreaches = [] } = useSlaBreaches();
   const { data: risks = [] } = useRiskAssessments();

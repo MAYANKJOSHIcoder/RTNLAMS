@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +17,7 @@ type FormData = z.infer<typeof schema>;
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showPw, setShowPw] = useState(false);
   const {
     register,
@@ -35,7 +36,9 @@ export default function Login() {
       return;
     }
     toast.success('Welcome back');
-    navigate('/dashboard');
+    // Return to the deep link that triggered the login, if any
+    const from = (location.state as { from?: string } | null)?.from;
+    navigate(from && from !== '/login' ? from : '/dashboard');
   };
 
   return (

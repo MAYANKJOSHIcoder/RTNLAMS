@@ -10,9 +10,9 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase/client';
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
   { to: '/parcels', label: 'Parcels', icon: Map, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
-  { to: '/documents', label: 'Documents', icon: FileText, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
-  { to: '/hearings', label: 'Hearings', icon: Gavel, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
-  { to: '/compensation', label: 'Compensation', icon: Wallet, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
+  { to: '/documents', label: 'Documents', icon: FileText, roles: ['admin', 'field_officer', 'auditor'] },
+  { to: '/hearings', label: 'Hearings', icon: Gavel, roles: ['admin', 'field_officer', 'auditor'] },
+  { to: '/compensation', label: 'Compensation', icon: Wallet, roles: ['admin', 'field_officer', 'auditor'] },
   { to: '/audit', label: 'Audit', icon: ShieldCheck, roles: ['admin', 'auditor'] },
 ];
 
@@ -24,6 +24,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
   const { data: slaBreaches = [] } = useSlaBreaches();
   const { profile } = useAuth();
   const userRole = profile?.role ?? 'citizen';
+  const isCitizen = userRole === 'citizen';
 
   const { data: projects = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: ['projects-list'],
@@ -47,8 +48,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
           ${mobileOpen ? 'fixed inset-y-0 left-0 z-40 lg:static' : 'hidden lg:flex'} min-h-[calc(100vh-3.5rem)]`}
         aria-label="Main navigation"
       >
-        {/* Project selector — PROMPT 21 polish */}
-        <div className={`p-3 border-b border-white/10 ${isCollapsed ? 'hidden' : 'block'}`}>
+        {/* Project selector — staff only (citizens see their own parcels regardless of project) */}
+        <div className={`p-3 border-b border-white/10 ${isCollapsed || isCitizen ? 'hidden' : 'block'}`}>
           <label htmlFor="project-select" className="block text-xs font-medium text-slate-500 mb-1">
             Project
           </label>
@@ -97,8 +98,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
           ))}
         </nav>
 
-        {/* SLA breach badge */}
-        {!isCollapsed && (
+        {/* SLA breach badge — staff only */}
+        {!isCollapsed && !isCitizen && (
           <div className="px-3 pb-2">
             <div className="bg-amber-50 border border-amber-200 rounded-md p-2.5 text-xs">
               <div className="font-medium text-amber-900">SLA Breaches: {slaBreaches.length}</div>

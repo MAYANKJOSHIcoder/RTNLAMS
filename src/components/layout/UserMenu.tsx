@@ -52,9 +52,9 @@ export default function UserMenu() {
           <Link to="/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-white/[0.04] cursor-pointer" role="menuitem">
             <User size={16} /> Open Dashboard
           </Link>
-          <button onClick={() => setOpen(false)} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-white/[0.04] cursor-pointer text-left" role="menuitem">
+          <Link to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-white/[0.04] cursor-pointer" role="menuitem">
             <Settings size={16} /> Settings
-          </button>
+          </Link>
           <div className="border-t border-slate-100 my-1" />
           <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer text-left" role="menuitem">
             <LogOut size={16} /> Logout

@@ -1,5 +1,5 @@
 import { Suspense, lazy, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider } from './context/ProjectContext';
@@ -8,6 +8,7 @@ import Sidebar from './components/layout/Sidebar';
 import Footer from './components/layout/Footer';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { LoadingScreen } from './components/ui/LoadingScreen';
+import RoleGate from './components/common/RoleGate';
 import { useSessionTimeout } from './hooks/useSessionTimeout';
 
 // Lazy pages — per ui-ux-pro-max performance guidance
@@ -20,12 +21,14 @@ const Documents = lazy(() => import('./pages/Documents'));
 const Hearings = lazy(() => import('./pages/Hearings'));
 const Compensation = lazy(() => import('./pages/Compensation'));
 const Audit = lazy(() => import('./pages/Audit'));
+const Settings = lazy(() => import('./pages/Settings'));
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   useSessionTimeout(!!user);
   if (loading) return <div className="p-8 text-center text-slate-500">Loading…</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   return <>{children}</>;
 }
 
@@ -49,6 +52,8 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+const staff = ['admin', 'field_officer', 'auditor'] as const;
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -62,17 +67,18 @@ export default function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
 
-                {/* Protected — with layout per PROMPT 7:186 */}
+                {/* Protected — with layout */}
                 <Route path="/dashboard" element={<Protected><AppLayout><Dashboard /></AppLayout></Protected>} />
                 <Route path="/parcels" element={<Protected><AppLayout><Parcels /></AppLayout></Protected>} />
-                <Route path="/documents" element={<Protected><AppLayout><Documents /></AppLayout></Protected>} />
-                <Route path="/documents/:id" element={<Protected><AppLayout><Documents /></AppLayout></Protected>} />
-                <Route path="/hearings" element={<Protected><AppLayout><Hearings /></AppLayout></Protected>} />
-                <Route path="/hearings/:id" element={<Protected><AppLayout><Hearings /></AppLayout></Protected>} />
-                <Route path="/compensation" element={<Protected><AppLayout><Compensation /></AppLayout></Protected>} />
-                <Route path="/compensation/:id" element={<Protected><AppLayout><Compensation /></AppLayout></Protected>} />
-                <Route path="/audit" element={<Protected><AppLayout><Audit /></AppLayout></Protected>} />
-                <Route path="/audit/:id" element={<Protected><AppLayout><Audit /></AppLayout></Protected>} />
+                <Route path="/documents" element={<Protected><RoleGate allow={[...staff]}><AppLayout><Documents /></AppLayout></RoleGate></Protected>} />
+                <Route path="/documents/:id" element={<Protected><RoleGate allow={[...staff]}><AppLayout><Documents /></AppLayout></RoleGate></Protected>} />
+                <Route path="/hearings" element={<Protected><RoleGate allow={[...staff]}><AppLayout><Hearings /></AppLayout></RoleGate></Protected>} />
+                <Route path="/hearings/:id" element={<Protected><RoleGate allow={[...staff]}><AppLayout><Hearings /></AppLayout></RoleGate></Protected>} />
+                <Route path="/compensation" element={<Protected><RoleGate allow={[...staff]}><AppLayout><Compensation /></AppLayout></RoleGate></Protected>} />
+                <Route path="/compensation/:id" element={<Protected><RoleGate allow={[...staff]}><AppLayout><Compensation /></AppLayout></RoleGate></Protected>} />
+                <Route path="/audit" element={<Protected><RoleGate allow={['admin', 'auditor']}><AppLayout><Audit /></AppLayout></RoleGate></Protected>} />
+                <Route path="/audit/:id" element={<Protected><RoleGate allow={['admin', 'auditor']}><AppLayout><Audit /></AppLayout></RoleGate></Protected>} />
+                <Route path="/settings" element={<Protected><AppLayout><Settings /></AppLayout></Protected>} />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

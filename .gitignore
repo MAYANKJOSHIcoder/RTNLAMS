@@ -61,6 +61,8 @@ Desktop.ini
 # Project — local only (per user: PROGRESS.md not committed, tooling)
 PROGRESS.md
 user_level.md
+project.txt
+test_db.js
 skills/
 
 # Python server — local only (not deployed, not tracked)

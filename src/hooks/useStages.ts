@@ -80,9 +80,10 @@ export function useResolveBreach() {
 // SLA monitoring: mark overdue in_progress → breached via RPC (idempotent),
 // then fetch all unresolved breaches. RPC path works for FO sessions
 // (they have no direct write on acquisition_stages).
-export function useSlaBreaches() {
+export function useSlaBreaches(enabled = true) {
   return useQuery({
     queryKey: ['sla-breaches'],
+    enabled,
     queryFn: async () => {
       if (!isSupabaseConfigured()) return [] as AcquisitionStage[];
       const { error: markErr } = await supabase.rpc('mark_overdue_breached');

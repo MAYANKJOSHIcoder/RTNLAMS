@@ -23,7 +23,7 @@ export default function Dashboard() {
   const { profile } = useAuth();
 
   const { data: parcels = [], refetch: refetchParcels, isError, error } = useParcels(null, projectId ?? undefined);
-  const { data: slaBreaches = [] } = useSlaBreaches();
+  const { data: slaBreaches = [] } = useSlaBreaches(profile?.role !== 'citizen');
   const { data: risks = [] } = useRiskAssessments();
   const { data: awards = [] } = useCompensation();
   const [projectsCount, setProjectsCount] = useState<number | null>(null);

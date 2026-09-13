@@ -17,6 +17,7 @@ const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Parcels = lazy(() => import('./pages/Parcels'));
+const Queries = lazy(() => import('./pages/Queries'));
 const Documents = lazy(() => import('./pages/Documents'));
 const Hearings = lazy(() => import('./pages/Hearings'));
 const Compensation = lazy(() => import('./pages/Compensation'));
@@ -70,6 +71,7 @@ export default function App() {
                 {/* Protected — with layout */}
                 <Route path="/dashboard" element={<Protected><AppLayout><Dashboard /></AppLayout></Protected>} />
                 <Route path="/parcels" element={<Protected><AppLayout><Parcels /></AppLayout></Protected>} />
+                <Route path="/queries" element={<Protected><RoleGate allow={[...staff]}><AppLayout><Queries /></AppLayout></RoleGate></Protected>} />
                 <Route path="/documents" element={<Protected><RoleGate allow={[...staff]}><AppLayout><Documents /></AppLayout></RoleGate></Protected>} />
                 <Route path="/documents/:id" element={<Protected><RoleGate allow={[...staff]}><AppLayout><Documents /></AppLayout></RoleGate></Protected>} />
                 <Route path="/hearings" element={<Protected><RoleGate allow={[...staff]}><AppLayout><Hearings /></AppLayout></RoleGate></Protected>} />

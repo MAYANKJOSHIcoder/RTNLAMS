@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Map, FileText, Gavel, Wallet, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Map, FileText, Gavel, Wallet, ShieldCheck, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useProject } from '../../context/ProjectContext';
@@ -10,6 +10,7 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase/client';
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
   { to: '/parcels', label: 'Parcels', icon: Map, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
+  { to: '/queries', label: 'Raised Queries', icon: Inbox, roles: ['admin', 'field_officer', 'auditor'] },
   { to: '/documents', label: 'Documents', icon: FileText, roles: ['admin', 'field_officer', 'auditor'] },
   { to: '/hearings', label: 'Hearings', icon: Gavel, roles: ['admin', 'field_officer', 'auditor'] },
   { to: '/compensation', label: 'Compensation', icon: Wallet, roles: ['admin', 'field_officer', 'auditor'] },
@@ -21,10 +22,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: { 
   const isCollapsed = collapsed ?? internalCollapsed;
   const toggle = onToggle ?? (() => setInternalCollapsed(!isCollapsed));
   const { projectId, setProjectId } = useProject();
-  const { data: slaBreaches = [] } = useSlaBreaches();
   const { profile } = useAuth();
   const userRole = profile?.role ?? 'citizen';
   const isCitizen = userRole === 'citizen';
+  const { data: slaBreaches = [] } = useSlaBreaches(!isCitizen);
 
   const { data: projects = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: ['projects-list'],

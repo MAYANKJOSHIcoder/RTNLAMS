@@ -9,7 +9,7 @@ interface StagePipelineProps {
 
 export default function StagePipeline({ countsByStage }: StagePipelineProps) {
   const data = STAGES.map((s) => ({
-    name: `${s.stage_number}. ${s.stage_name.slice(0, 12)}`,
+    name: `${s.stage_number}. ${s.stage_name}`,
     count: countsByStage[s.stage_number] ?? 0,
     sla: s.sla_days ?? 0,
   }));
@@ -17,10 +17,10 @@ export default function StagePipeline({ countsByStage }: StagePipelineProps) {
   return (
     <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4">
       <h3 className="text-sm font-semibold text-slate-900 mb-3">Stage Pipeline (parcels per stage)</h3>
-      <ResponsiveContainer width="100%" height={260}>
+      <ResponsiveContainer width="100%" height={360}>
         <BarChart data={data} layout="vertical" margin={{ left: 40, right: 16, top: 4, bottom: 4 }}>
           <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#8f8f8f' }} stroke="#ffffff1a" />
-          <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 10, fill: '#8f8f8f' }} stroke="#ffffff1a" />
+          <YAxis type="category" dataKey="name" width={170} tick={{ fontSize: 10, fill: '#8f8f8f' }} stroke="#ffffff1a" interval={0} />
           <Tooltip formatter={(v: unknown) => String(v)} contentStyle={{ background: '#0c0c0c', border: '1px solid #ffffff1a', borderRadius: 8, color: '#ededed' }} cursor={{ fill: '#ffffff09' }} />
           <Bar dataKey="count" radius={[0, 6, 6, 0]}>
             {data.map((_, i) => (

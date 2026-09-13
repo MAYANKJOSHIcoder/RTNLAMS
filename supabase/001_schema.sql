@@ -37,6 +37,52 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Creates a small visible parcel box around a real lat/lng point.
+-- Use this for demo/imported parcels when exact survey boundaries are absent.
+CREATE OR REPLACE FUNCTION public.make_parcel_square(
+  p_lat FLOAT,
+  p_lng FLOAT,
+  p_half_size FLOAT DEFAULT 0.004
+)
+RETURNS GEOMETRY(Polygon,4326) AS $$
+  SELECT ST_MakeEnvelope(
+    p_lng - p_half_size,
+    p_lat - p_half_size,
+    p_lng + p_half_size,
+    p_lat + p_half_size,
+    4326
+  )::GEOMETRY(Polygon,4326);
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION public.sync_parcel_geometry()
+RETURNS TRIGGER AS $$
+DECLARE
+  c GEOMETRY(Point,4326);
+BEGIN
+  IF NEW.latitude IS NOT NULL AND (NEW.latitude < -90 OR NEW.latitude > 90) THEN
+    RAISE EXCEPTION 'latitude must be between -90 and 90';
+  END IF;
+  IF NEW.longitude IS NOT NULL AND (NEW.longitude < -180 OR NEW.longitude > 180) THEN
+    RAISE EXCEPTION 'longitude must be between -180 and 180';
+  END IF;
+  IF (NEW.latitude IS NULL) <> (NEW.longitude IS NULL) THEN
+    RAISE EXCEPTION 'latitude and longitude must be provided together';
+  END IF;
+
+  IF NEW.geometry IS NULL AND NEW.latitude IS NOT NULL AND NEW.longitude IS NOT NULL THEN
+    NEW.geometry := public.make_parcel_square(NEW.latitude::FLOAT, NEW.longitude::FLOAT);
+  END IF;
+
+  IF NEW.geometry IS NOT NULL AND (NEW.latitude IS NULL OR NEW.longitude IS NULL) THEN
+    c := ST_PointOnSurface(NEW.geometry);
+    NEW.latitude := ST_Y(c);
+    NEW.longitude := ST_X(c);
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ---------------------------------------------------------------------------
 -- 1. user_profiles
 -- ---------------------------------------------------------------------------
@@ -112,6 +158,8 @@ CREATE TABLE public.parcels (
   area_hectares NUMERIC(12,4) NOT NULL,
   land_use TEXT,
   geometry GEOMETRY(Polygon,4326),
+  latitude NUMERIC(9,6) CHECK (latitude IS NULL OR (latitude >= -90 AND latitude <= 90)),
+  longitude NUMERIC(9,6) CHECK (longitude IS NULL OR (longitude >= -180 AND longitude <= 180)),
   status TEXT NOT NULL CHECK (status IN ('identified','notified','surveyed','acquired','disputed')) DEFAULT 'identified',
   risk_score NUMERIC(3,2) CHECK (risk_score IS NULL OR (risk_score >= 0 AND risk_score <= 1)),
   survey_number TEXT,
@@ -271,6 +319,7 @@ CREATE INDEX idx_user_profiles_aadhaar ON public.user_profiles(aadhaar);
 -- ---------------------------------------------------------------------------
 CREATE TRIGGER trg_user_profiles_updated BEFORE UPDATE ON public.user_profiles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_projects_updated BEFORE UPDATE ON public.projects FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER trg_parcels_geometry BEFORE INSERT OR UPDATE ON public.parcels FOR EACH ROW EXECUTE FUNCTION public.sync_parcel_geometry();
 CREATE TRIGGER trg_parcels_updated BEFORE UPDATE ON public.parcels FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_documents_updated BEFORE UPDATE ON public.documents FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_stages_updated BEFORE UPDATE ON public.acquisition_stages FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
@@ -914,6 +963,13 @@ DO $$ DECLARE p TEXT; BEGIN
   FOREACH p IN ARRAY ARRAY[
     -- current
     'auth read all buckets', 'auth write documents',
+    -- 003_rls_hardening era
+    '003_documents_read',
+    '003_documents_upload',
+    '003_documents_delete',
+    '003_staff_buckets_read',
+    '003_staff_buckets_upload',
+    '003_staff_buckets_delete',
     -- 004_storage_buckets era
     'Authenticated users can upload documents',
     'Authenticated users can update their documents',

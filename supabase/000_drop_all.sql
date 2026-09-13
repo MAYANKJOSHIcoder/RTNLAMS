@@ -36,6 +36,8 @@ DROP FUNCTION IF EXISTS public.set_uploaded_by() CASCADE;
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP FUNCTION IF EXISTS public.current_user_role() CASCADE;
 DROP FUNCTION IF EXISTS public.set_updated_at() CASCADE;
+DROP FUNCTION IF EXISTS public.make_parcel_square(float, float, float) CASCADE;
+DROP FUNCTION IF EXISTS public.sync_parcel_geometry() CASCADE;
 DROP FUNCTION IF EXISTS public.parcels_within_bbox(float, float, float, float) CASCADE;
 DROP FUNCTION IF EXISTS public.parcels_nearby(float, float, float) CASCADE;
 DROP FUNCTION IF EXISTS public.parcels_nearby(float, float, integer) CASCADE;
@@ -47,6 +49,12 @@ DROP FUNCTION IF EXISTS public.get_parcel_current_stages(text) CASCADE;
 DO $$ DECLARE p TEXT; BEGIN
   FOREACH p IN ARRAY ARRAY[
     'auth read all buckets', 'auth write documents',
+    '003_documents_read',
+    '003_documents_upload',
+    '003_documents_delete',
+    '003_staff_buckets_read',
+    '003_staff_buckets_upload',
+    '003_staff_buckets_delete',
     'Authenticated users can upload documents',
     'Authenticated users can update their documents',
     'Authenticated users can delete their documents',

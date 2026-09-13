@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
 import type { Parcel, FeatureCollection, MapFeature, GeoJsonGeometry } from '../lib/types';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 
 const STATUS_COLORS: Record<string, string> = {
   identified: '#93C5FD',
@@ -11,11 +13,47 @@ const STATUS_COLORS: Record<string, string> = {
   disputed: '#FCA5A5',
 };
 
+function closeRing(coords: [number, number][]): [number, number][] {
+  if (!coords || coords.length === 0) return coords;
+  const first = coords[0];
+  const last = coords[coords.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    return [...coords, [first[0], first[1]]];
+  }
+  return coords;
+}
+
+// Strip non-standard fields (e.g. PostGIS `crs`) that violate RFC 7946.
+// MapLibre silently drops features whose geometry contains unknown keys.
+function stripCrs(g: Record<string, unknown>): Record<string, unknown> {
+  if (!g || typeof g !== 'object') return g;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { crs, ...clean } = g;
+  return clean;
+}
+
+function toRenderableGeometry(raw: GeoJsonGeometry): GeoJsonGeometry | null {
+  if (!raw || !raw.type) return null;
+  // Strip PostGIS `crs` field that breaks MapLibre
+  const g = stripCrs(raw as unknown as Record<string, unknown>) as unknown as GeoJsonGeometry;
+  if (g.type === 'Point') {
+    const [lng, lat] = g.coordinates;
+    const d = 0.004;
+    const ring: [number, number][] = [
+      [lng - d, lat - d], [lng + d, lat - d], [lng + d, lat + d], [lng - d, lat + d], [lng - d, lat - d],
+    ];
+    return { type: 'Polygon', coordinates: [ring] };
+  }
+  if (g.type === 'Polygon') return { type: 'Polygon', coordinates: g.coordinates.map(closeRing) };
+  if (g.type === 'MultiPolygon') return { type: 'MultiPolygon', coordinates: g.coordinates.map(poly => poly.map(closeRing)) };
+  return g;
+}
+
 function parcelToFeature(parcel: Parcel): MapFeature | null {
   if (!parcel.geometry) return null;
   return {
     type: 'Feature',
-    geometry: parcel.geometry as GeoJsonGeometry,
+    geometry: toRenderableGeometry(parcel.geometry as GeoJsonGeometry) || (parcel.geometry as GeoJsonGeometry),
     properties: {
       id: parcel.id,
       parcel_number: parcel.parcel_number,
@@ -43,10 +81,14 @@ export function statusColor(status: string): string {
 }
 
 // Fetch parcels within bbox (or all if no bbox) — uses Supabase + PostGIS bbox via ST_Within if configured; falls back to full fetch
+// Waits for auth session to be restored before querying so RLS doesn't block reads.
 export function useParcels(bbox?: [number, number, number, number] | null, projectId?: string, enabled = true) {
+  const { user, loading: authLoading } = useAuth();
   return useQuery({
-    queryKey: ['parcels', bbox, projectId],
-    enabled,
+    // Include user id in cache key so the cache is invalidated on login/logout
+    queryKey: ['parcels', bbox, projectId, user?.id ?? null],
+    // Don't fire the query while auth is still restoring the session
+    enabled: enabled && !authLoading && !!user,
     queryFn: async () => {
       if (!isSupabaseConfigured()) throw new Error('Database not connected');
       let query = supabase.from('parcels').select('*');
@@ -77,9 +119,13 @@ export function useParcels(bbox?: [number, number, number, number] | null, proje
 
 export function useParcelsGeoJson(bbox?: [number, number, number, number] | null, projectId?: string) {
   const q = useParcels(bbox, projectId);
+  const geoJson = useMemo(
+    () => (q.data ? parcelsToFeatureCollection(q.data) : ({ type: 'FeatureCollection', features: [] } as FeatureCollection)),
+    [q.data],
+  );
   return {
     ...q,
-    geoJson: q.data ? parcelsToFeatureCollection(q.data) : ({ type: 'FeatureCollection', features: [] } as FeatureCollection),
+    geoJson,
   };
 }
 
@@ -100,6 +146,8 @@ export function useCreateParcel() {
         district: parcel.district ?? null,
         state: parcel.state ?? null,
         survey_number: parcel.survey_number ?? null,
+        latitude: parcel.latitude ?? null,
+        longitude: parcel.longitude ?? null,
         geometry: parcel.geometry,
       };
       const { data, error } = await supabase.from('parcels').insert(sanitized).select().single();

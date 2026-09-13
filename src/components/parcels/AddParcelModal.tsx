@@ -24,6 +24,28 @@ const schema = z.object({
   district: z.string().trim().optional(),
   state: z.string().trim().optional(),
   survey_number: z.string().trim().optional(),
+  latitude: z.string().trim().optional(),
+  longitude: z.string().trim().optional(),
+}).superRefine((data, ctx) => {
+  const hasLat = data.latitude !== undefined && data.latitude !== '';
+  const hasLng = data.longitude !== undefined && data.longitude !== '';
+  if (hasLat !== hasLng) {
+    ctx.addIssue({
+      code: 'custom',
+      path: hasLat ? ['longitude'] : ['latitude'],
+      message: 'Enter both latitude and longitude',
+    });
+    return;
+  }
+  if (!hasLat || !hasLng) return;
+  const lat = Number(data.latitude);
+  const lng = Number(data.longitude);
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+    ctx.addIssue({ code: 'custom', path: ['latitude'], message: 'Latitude must be between -90 and 90' });
+  }
+  if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+    ctx.addIssue({ code: 'custom', path: ['longitude'], message: 'Longitude must be between -180 and 180' });
+  }
 });
 
 type FormData = z.infer<typeof schema>;
@@ -35,6 +57,24 @@ interface AddParcelModalProps {
   onClose: () => void;
   onCreate: (parcel: Partial<Parcel>) => void;
   creating?: boolean;
+}
+
+function pointToParcelPolygon(latitude?: string, longitude?: string): Parcel['geometry'] {
+  if (!latitude || !longitude) return null;
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const d = 0.004;
+  return {
+    type: 'Polygon',
+    coordinates: [[
+      [lng - d, lat - d],
+      [lng + d, lat - d],
+      [lng + d, lat + d],
+      [lng - d, lat + d],
+      [lng - d, lat - d],
+    ]],
+  };
 }
 
 export default function AddParcelModal({ open, projectId, onClose, onCreate, creating }: AddParcelModalProps) {
@@ -61,7 +101,9 @@ export default function AddParcelModal({ open, projectId, onClose, onCreate, cre
       state: data.state || null,
       survey_number: data.survey_number || null,
       project_id: projectId,
-      geometry: null,
+      latitude: data.latitude ? Number(data.latitude) : null,
+      longitude: data.longitude ? Number(data.longitude) : null,
+      geometry: pointToParcelPolygon(data.latitude, data.longitude),
     });
   });
 
@@ -147,7 +189,20 @@ export default function AddParcelModal({ open, projectId, onClose, onCreate, cre
           </div>
         </div>
 
-        <p className="text-xs text-slate-500">Area converts to hectares at save. The 12-stage lifecycle starts automatically.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Latitude</label>
+            <input {...register('latitude')} inputMode="decimal" className={inputCls(errors.latitude)} placeholder="28.6139" />
+            {errors.latitude && <p role="alert" className="text-xs text-red-600 mt-1">{errors.latitude.message}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Longitude</label>
+            <input {...register('longitude')} inputMode="decimal" className={inputCls(errors.longitude)} placeholder="77.2090" />
+            {errors.longitude && <p role="alert" className="text-xs text-red-600 mt-1">{errors.longitude.message}</p>}
+          </div>
+        </div>
+
+        <p className="text-xs text-slate-500">Area converts to hectares at save. Coordinates draw the parcel on the map. The 12-stage lifecycle starts automatically.</p>
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="secondary" onClick={close}>Cancel</Button>
           <Button type="submit" loading={creating}>Create Parcel</Button>

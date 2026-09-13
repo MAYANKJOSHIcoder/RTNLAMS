@@ -89,6 +89,8 @@ export interface Parcel {
   area_hectares: number;
   land_use: string | null;
   geometry: GeoJsonGeometry | null; // GEOMETRY(POLYGON,4326)
+  latitude?: number | null;
+  longitude?: number | null;
   // centroid for map convenience (computed)
   centroid?: { lat: number; lng: number } | null;
   status: ParcelStatus;

@@ -31,6 +31,24 @@ const ParcelMap = lazy(() => import('../components/maps/ParcelMap'));
 
 const TABS = ['Overview', 'Documents', 'Timeline', 'Hearings', 'Compensation', 'Audit'] as const;
 
+function pointToParcelPolygon(latitude?: string, longitude?: string): Parcel['geometry'] {
+  if (!latitude || !longitude) return null;
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  const d = 0.004;
+  return {
+    type: 'Polygon',
+    coordinates: [[
+      [lng - d, lat - d],
+      [lng + d, lat - d],
+      [lng + d, lat + d],
+      [lng - d, lat + d],
+      [lng - d, lat - d],
+    ]],
+  };
+}
+
 export default function Parcels() {
   const { projectId } = useProject();
   const { profile } = useAuth();
@@ -106,6 +124,8 @@ export default function Parcels() {
     const idxAadhaar = headers.indexOf('owner_aadhaar');
     const idxArea = headers.indexOf('area');
     const idxUnit = headers.indexOf('area_unit');
+    const idxLat = headers.findIndex((h) => h === 'latitude' || h === 'lat');
+    const idxLng = headers.findIndex((h) => h === 'longitude' || h === 'lng' || h === 'lon');
     if (idxNum === -1 || idxOwner === -1 || idxArea === -1) {
       toast.error('CSV must have parcel_number, owner_name, area columns (optional: owner_aadhaar, area_unit)');
       return;
@@ -117,8 +137,20 @@ export default function Parcels() {
       const unit = (cols[idxUnit] || 'hectare').toLowerCase();
       const aadhaar = idxAadhaar >= 0 ? cols[idxAadhaar] : '';
       const area = Number(cols[idxArea]);
+      const latitude = idxLat >= 0 ? cols[idxLat] : '';
+      const longitude = idxLng >= 0 ? cols[idxLng] : '';
+      const hasLat = latitude !== '';
+      const hasLng = longitude !== '';
       if (!cols[idxNum] || !cols[idxOwner] || !Number.isFinite(area) || area <= 0) {
         invalid.push(`row ${i + 2}`);
+        return;
+      }
+      if (hasLat !== hasLng) {
+        invalid.push(`row ${i + 2} (latitude and longitude must both be present)`);
+        return;
+      }
+      if (hasLat && !pointToParcelPolygon(latitude, longitude)) {
+        invalid.push(`row ${i + 2} (invalid latitude/longitude)`);
         return;
       }
       if (aadhaar && !/^\d{12}$/.test(aadhaar)) {
@@ -136,7 +168,9 @@ export default function Parcels() {
           owner_aadhaar: aadhaar || null,
           area_hectares: toHectares(area, unit as AreaUnit),
           project_id: projectId,
-          geometry: null,
+          latitude: latitude ? Number(latitude) : null,
+          longitude: longitude ? Number(longitude) : null,
+          geometry: pointToParcelPolygon(latitude, longitude),
         },
         area,
         unit,

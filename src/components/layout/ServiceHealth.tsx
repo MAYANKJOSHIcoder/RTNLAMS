@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity } from 'lucide-react';
-import { config, isGeminiConfigured, isIndicTransConfigured, isSupabaseConfigured } from '../../lib/config';
+import { config, isIndicTransConfigured, isSupabaseConfigured } from '../../lib/config';
 import { supabase } from '../../lib/supabase/client';
 
 type Status = 'ok' | 'down' | 'skipped' | 'checking';
@@ -47,20 +47,28 @@ const services: Service[] = [
   },
   {
     key: 'storage',
-    label: 'Storage buckets (004)',
+    label: 'Storage buckets (003)',
     check: async () => {
       // Authenticated client transport — proves bucket exists + RLS allows this session
       const { error } = await supabase.storage.from('documents').list('', { limit: 1 });
-      return error ? 'down' : 'ok';
+      if (!error) return 'ok';
+      // 003 tightened storage to per-role policies — a citizen session is
+      // expected to be denied list; that's 'skipped', not 'down'.
+      if (/row-level security|authorization|not authorized|403/i.test(error.message)) return 'skipped';
+      return 'down';
     },
   },
   {
     key: 'gemini',
-    label: 'Gemini API key',
+    label: 'Gemini API (server proxy)',
     check: async () => {
-      if (!isGeminiConfigured()) return 'skipped';
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=${config.geminiApiKey}`, { signal: AbortSignal.timeout(TIMEOUT) });
-      return res.ok ? 'ok' : 'down';
+      // /api/gemini GET — server holds the key, reports reachability only.
+      // 15 s budget > server's internal 8 s Google timeout, so a cold TLS
+      // handshake on the very first probe doesn't show a false 'down'.
+      const res = await fetch('/api/gemini', { signal: AbortSignal.timeout(15_000) });
+      if (!res.ok) return 'down';
+      const json = (await res.json().catch(() => null)) as { gemini?: boolean } | null;
+      return json?.gemini ? 'ok' : 'down';
     },
   },
   {
@@ -116,10 +124,11 @@ export default function ServiceHealth() {
   }, []);
 
   useEffect(() => {
+    if (!open) return;
     void runAll();
     const id = setInterval(() => void runAll(), 60_000);
     return () => clearInterval(id);
-  }, [runAll]);
+  }, [open, runAll]);
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -131,7 +140,8 @@ export default function ServiceHealth() {
 
   const overall: Status = (() => {
     const vals = Object.values(statuses);
-    if (!vals.length || vals.some((v) => v === 'checking')) return 'checking';
+    if (!vals.length) return 'skipped';
+    if (vals.some((v) => v === 'checking')) return 'checking';
     if (vals.some((v, i) => v === 'down' && services[i]?.required)) return 'down';
     if (vals.some((v) => v === 'down')) return 'skipped'; // yellow: optional down
     return 'ok';
@@ -158,7 +168,7 @@ export default function ServiceHealth() {
             <div key={s.key} className="flex items-center gap-2 px-3 py-1.5 text-xs">
               <span className={`w-2 h-2 rounded-full shrink-0 ${DOT[statuses[s.key] ?? 'checking']}`} aria-hidden />
               <span className="truncate">{s.label}</span>
-              <span className="ml-auto text-slate-400">{statuses[s.key] === 'skipped' ? 'no key' : statuses[s.key] ?? '…'}</span>
+              <span className="ml-auto text-slate-400">{statuses[s.key] === 'skipped' ? (s.key === 'tesseract' ? 'lazy' : 'no key') : statuses[s.key] ?? '…'}</span>
             </div>
           ))}
           <div className="px-3 py-1.5 text-[10px] text-slate-400 border-t border-slate-100">Auto-refreshes every 60s</div>

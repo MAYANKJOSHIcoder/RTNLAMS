@@ -1,9 +1,11 @@
 /**
  * Gemini Client — PROMPT 13
  * Hybrid: Tesseract OCR (raw text) → IndicTrans (detect/translate) → Gemini (structured JSON)
- * Rate limit 15/min, retries 3, uses config.ts VITE_GEMINI_API_KEY via import.meta.env
+ * Rate limit 15/min, retries 3. The Gemini call is proxied through the
+ * serverless function /api/gemini — the API key never reaches the browser.
  */
-import { config, isGeminiConfigured, isIndicTransConfigured } from '../config';
+import { config, isIndicTransConfigured } from '../config';
+import { supabase } from '../supabase/client';
 import type { Worker } from 'tesseract.js';
 
 const RATE_LIMIT = 15;
@@ -103,13 +105,9 @@ interface GeminiOptions {
 }
 
 export async function callGemini({ prompt, imageBase64, mimeType = 'image/jpeg', retries = MAX_RETRIES }: GeminiOptions): Promise<string> {
-  if (!isGeminiConfigured() || !config.geminiApiKey) {
-    throw new Error('Gemini API key not configured — fill VITE_GEMINI_API_KEY in .env');
-  }
-
   checkRateLimit();
 
-  // Build hybrid context: Tesseract + IndicTrans preprocessing
+  // Build hybrid context: Tesseract + IndicTrans preprocessing (both client-side, free)
   let tesseractText = '';
   let indic: { detectedLanguage: string; translatedText: string } = { detectedLanguage: 'en', translatedText: '' };
   if (imageBase64) {
@@ -126,41 +124,25 @@ IndicTrans translated_text: ${indic.translatedText.slice(0, 4000)}
 --- END CONTEXT ---
 Reconcile both outputs, preserve original_text, include translated_text, detected language, and structured extracted_fields with confidence per field. Return ONLY valid JSON.`;
 
-  const body: Record<string, unknown> = {
-    contents: [
-      {
-        parts: [
-          { text: combinedPrompt },
-          ...(imageBase64
-            ? [{ inline_data: { mime_type: mimeType, data: imageBase64.replace(/^data:[^;]+;base64,/, '') } }]
-            : []),
-        ],
-      },
-    ],
-    // ponytail: no temperature — Gemini 3.x rejects non-default values
-    generationConfig: { responseMimeType: 'application/json' },
-  };
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`;
-
+  const cleanB64 = imageBase64?.replace(/^data:[^;]+;base64,/, '');
   let lastErr: Error | null = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await fetch(url, {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sign in required — document extraction runs through an authenticated proxy.');
+      const res = await fetch('/api/gemini', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ prompt: combinedPrompt, imageBase64: cleanB64, mimeType }),
       });
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(`Gemini ${res.status}: ${txt.slice(0, 500)}`);
+      const json = (await res.json().catch(() => null)) as { text?: string; error?: string } | null;
+      if (!res.ok || !json?.text) {
+        throw new Error(json?.error ? `Gemini ${res.status}: ${json.error}` : `Gemini ${res.status}`);
       }
-      const json = (await res.json()) as {
-        candidates?: { content?: { parts?: { text?: string }[] } }[];
-      };
-      const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-      if (!text) throw new Error('Empty Gemini response');
-      return text;
+      return json.text;
     } catch (e) {
       lastErr = e as Error;
       if (attempt < retries) {

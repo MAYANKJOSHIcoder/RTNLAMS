@@ -8,8 +8,7 @@
 export interface AppConfig {
   supabaseUrl: string;
   supabaseAnonKey: string;
-  geminiApiKey: string;
-  geminiModel: string;
+  cartoApiKey: string;
   indicTransApiUrl: string;
 }
 
@@ -40,12 +39,6 @@ export function isSupabaseConfigured(): boolean {
   return !!url && !!key && !isPlaceholder('VITE_SUPABASE_URL', url) && !isPlaceholder('VITE_SUPABASE_ANON_KEY', key);
 }
 
-/** Gemini — optional, enables AI document extraction */
-export function isGeminiConfigured(): boolean {
-  const key = getVal('VITE_GEMINI_API_KEY');
-  return !!key && !isPlaceholder('VITE_GEMINI_API_KEY', key);
-}
-
 /** IndicTrans2 — optional, enables real translation (localhost:8080) */
 export function isIndicTransConfigured(): boolean {
   const url = getVal('VITE_INDICTRAN_API_URL');
@@ -66,8 +59,7 @@ export const config: AppConfig = (() => {
   return {
     supabaseUrl: e.VITE_SUPABASE_URL ?? '',
     supabaseAnonKey: e.VITE_SUPABASE_ANON_KEY ?? '',
-    geminiApiKey: e.VITE_GEMINI_API_KEY ?? '',
-    geminiModel: e.VITE_GEMINI_MODEL ?? 'gemini-3.1-flash-lite',
+    cartoApiKey: getVal('VITE_CARTO_API_KEY'),
     indicTransApiUrl: e.VITE_INDICTRAN_API_URL ?? '',
   };
 })();

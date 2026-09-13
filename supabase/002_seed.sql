@@ -20,6 +20,14 @@
 -- ===========================================================================
 
 -- ---------------------------------------------------------------------------
+-- Re-runnable: wipe any previous seed first. Deleting projects cascades to
+-- parcels → stages/documents/hearings/awards/risks; the NULL-parcel audit
+-- rows are not children of anything, so clear audit_logs explicitly.
+-- ---------------------------------------------------------------------------
+DELETE FROM public.audit_logs;
+DELETE FROM public.projects;
+
+-- ---------------------------------------------------------------------------
 -- Projects
 -- ---------------------------------------------------------------------------
 INSERT INTO public.projects (id, name, description, corridor_type, status, total_parcels, total_area_hectares) VALUES

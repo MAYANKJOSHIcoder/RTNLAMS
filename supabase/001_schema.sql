@@ -581,40 +581,47 @@ END;
 $$;
 
 -- ---------------------------------------------------------------------------
--- Spatial RPCs (carried from 005)
+-- Spatial RPCs (carried from 005). PARAMETER NAMES ARE THE CLIENT CONTRACT:
+-- src/lib/supabase/queries.ts calls {min_lng,min_lat,max_lng,max_lat},
+-- {lat,lng,radius_meters}, {corridor: GeoJSON} — PostgREST matches by name.
+-- SECURITY DEFINER + search_path pin as in 005 (map shows all parcels).
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.parcels_within_bbox(p_minlng FLOAT, p_minlat FLOAT, p_maxlng FLOAT, p_maxlat FLOAT)
-RETURNS SETOF public.parcels
-LANGUAGE sql STABLE AS $$
-  SELECT * FROM public.parcels
-  WHERE geometry IS NOT NULL
-    AND ST_Intersects(
-      geometry,
-      ST_MakeEnvelope(p_minlng, p_minlat, p_maxlng, p_maxlat, 4326)
-    );
-$$;
+-- Drop the short-lived p_* overloads from earlier 001 revisions if present:
+DROP FUNCTION IF EXISTS public.parcels_nearby(float, float, integer);
+DROP FUNCTION IF EXISTS public.parcels_intersecting_corridor(text);
 
-CREATE OR REPLACE FUNCTION public.parcels_nearby(p_lng FLOAT, p_lat FLOAT, p_radius_m INT DEFAULT 5000)
+CREATE OR REPLACE FUNCTION public.parcels_within_bbox(
+  min_lng FLOAT, min_lat FLOAT, max_lng FLOAT, max_lat FLOAT
+)
 RETURNS SETOF public.parcels
-LANGUAGE sql STABLE AS $$
-  SELECT * FROM public.parcels
-  WHERE geometry IS NOT NULL
-    AND ST_DWithin(
-      geometry::geography,
-      ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326)::geography,
-      p_radius_m
-    );
-$$;
-
-CREATE OR REPLACE FUNCTION public.parcels_intersecting_corridor(p_project_id TEXT)
-RETURNS SETOF public.parcels
-LANGUAGE sql STABLE AS $$
+LANGUAGE sql STABLE
+SECURITY DEFINER SET search_path = public, extensions, postgis AS $$
   SELECT p.* FROM public.parcels p
-  JOIN public.projects pr ON pr.id = p.project_id
-  WHERE pr.id = p_project_id
-    AND pr.corridor_geometry IS NOT NULL
-    AND p.geometry IS NOT NULL
-    AND ST_Intersects(p.geometry, pr.corridor_geometry);
+  WHERE p.geometry IS NOT NULL
+    AND ST_Within(p.geometry, ST_MakeEnvelope(min_lng, min_lat, max_lng, max_lat, 4326));
+$$;
+
+CREATE OR REPLACE FUNCTION public.parcels_nearby(
+  lat FLOAT, lng FLOAT, radius_meters FLOAT
+)
+RETURNS SETOF public.parcels
+LANGUAGE sql STABLE
+SECURITY DEFINER SET search_path = public, extensions, postgis AS $$
+  SELECT p.* FROM public.parcels p
+  WHERE p.geometry IS NOT NULL
+    AND ST_DWithin(p.geometry::geography,
+                   ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography,
+                   radius_meters);
+$$;
+
+CREATE OR REPLACE FUNCTION public.parcels_intersecting_corridor(corridor JSONB)
+RETURNS SETOF public.parcels
+LANGUAGE sql STABLE
+SECURITY DEFINER SET search_path = public, extensions, postgis AS $$
+  SELECT p.* FROM public.parcels p
+  WHERE p.geometry IS NOT NULL
+    AND ST_Intersects(p.geometry,
+                      ST_SetSRID(ST_GeomFromGeoJSON(corridor::text), 4326));
 $$;
 
 CREATE OR REPLACE FUNCTION public.get_parcel_current_stages(p_project_id TEXT DEFAULT NULL)

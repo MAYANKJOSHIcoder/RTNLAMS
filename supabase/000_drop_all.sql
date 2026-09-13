@@ -37,7 +37,9 @@ DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP FUNCTION IF EXISTS public.current_user_role() CASCADE;
 DROP FUNCTION IF EXISTS public.set_updated_at() CASCADE;
 DROP FUNCTION IF EXISTS public.parcels_within_bbox(float, float, float, float) CASCADE;
+DROP FUNCTION IF EXISTS public.parcels_nearby(float, float, float) CASCADE;
 DROP FUNCTION IF EXISTS public.parcels_nearby(float, float, integer) CASCADE;
+DROP FUNCTION IF EXISTS public.parcels_intersecting_corridor(jsonb) CASCADE;
 DROP FUNCTION IF EXISTS public.parcels_intersecting_corridor(text) CASCADE;
 DROP FUNCTION IF EXISTS public.get_parcel_current_stages(text) CASCADE;
 

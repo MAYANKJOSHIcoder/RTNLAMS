@@ -46,6 +46,19 @@ function extendFeatureBounds(bounds: maplibregl.LngLatBounds, geom?: unknown) {
   walk((geom as { coordinates?: unknown } | undefined)?.coordinates);
 }
 
+function geometryPoint(geom?: unknown): [number, number] | null {
+  const g = geom as { type?: string; coordinates?: unknown } | undefined;
+  if (
+    g?.type === 'Point'
+    && Array.isArray(g.coordinates)
+    && typeof g.coordinates[0] === 'number'
+    && typeof g.coordinates[1] === 'number'
+  ) {
+    return [g.coordinates[0], g.coordinates[1]];
+  }
+  return null;
+}
+
 // Centroid dots: a circle at each polygon's center — guaranteed visible
 // even when polygon fill/line layers fail to paint for any reason.
 function makeDots(features: { geometry?: unknown; properties?: Record<string, unknown>; id?: string | number }[]) {
@@ -67,7 +80,43 @@ function makeDots(features: { geometry?: unknown; properties?: Record<string, un
           },
         };
       })
-      .filter(Boolean),
+      .filter((f): f is Exclude<typeof f, null> => f !== null),
+  };
+}
+
+function makePointFeatures(parcels: Parcel[], filter: string, search: string) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: parcels
+      .filter((p) => {
+        if (filter !== 'all' && p.status !== filter) return false;
+        if (search && !p.parcel_number.toLowerCase().includes(search.toLowerCase())) return false;
+        return p.latitude != null && p.longitude != null;
+      })
+      .map((p) => {
+        const lat = Number(p.latitude);
+        const lng = Number(p.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        return {
+          type: 'Feature' as const,
+          id: p.id,
+          properties: {
+            id: p.id,
+            parcel_number: p.parcel_number,
+            status: p.status,
+            owner_name: p.owner_name,
+            area_hectares: p.area_hectares,
+            project_id: p.project_id,
+            latitude: lat,
+            longitude: lng,
+          },
+          geometry: {
+            type: 'Point' as const,
+            coordinates: [lng, lat] as [number, number],
+          },
+        };
+      })
+      .filter((f): f is Exclude<typeof f, null> => f !== null),
   };
 }
 
@@ -89,6 +138,9 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
   corridorModeRef.current = corridorMode;
 
   const { geoJson, data: parcels = [] } = useParcelsGeoJson(null, projectId);
+  const parcelsRef = useRef(parcels);
+  parcelsRef.current = parcels;
+  const pointData = useMemo(() => makePointFeatures(parcels, filter, search), [parcels, filter, search]);
 
   // Filter geojson by search + status before adding to map
   const filtered = useMemo(() => ({
@@ -110,6 +162,8 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
   // Centroid dots ref — keeps dots in sync with parcels via the same pattern.
   const dotsRef = useRef(makeDots(filtered.features));
   dotsRef.current = makeDots(filtered.features);
+  const pointDataRef = useRef(pointData);
+  pointDataRef.current = pointData;
 
   // Swap the base raster tiles: satellite (Esri) <-> light (CARTO Positron)
   const syncBasemap = (map: maplibregl.Map, satellite: boolean) => {
@@ -130,6 +184,11 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
   const focusParcel = (map: maplibregl.Map, parcelNumber: string, geometry?: unknown) => {
     clickedParcelRef.current = parcelNumber;
     if (map.getLayer('parcels-highlight')) map.setFilter('parcels-highlight', ['==', ['get', 'parcel_number'], parcelNumber]);
+    const point = geometryPoint(geometry);
+    if (point) {
+      map.flyTo({ center: point, zoom: Math.max(map.getZoom(), 16), duration: 700 });
+      return;
+    }
     const b = new maplibregl.LngLatBounds();
     extendFeatureBounds(b, geometry as { coordinates?: unknown });
     if (!b.isEmpty()) map.fitBounds(b, { padding: 80, maxZoom: 17, duration: 700 });
@@ -261,6 +320,32 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
         },
       });
 
+      // Raw lat/lng dots. This is intentionally independent from polygon
+      // geometry so imported rows with coordinates still show on the map.
+      map.addSource('parcel-points', { type: 'geojson', data: pointDataRef.current as never });
+      map.addLayer({
+        id: 'parcel-points',
+        type: 'circle',
+        source: 'parcel-points',
+        paint: {
+          'circle-color': [
+            'match', ['get', 'status'],
+            'identified', '#3B82F6', 'notified', '#F59E0B',
+            'surveyed', '#14B8A6', 'acquired', '#22C55E',
+            'disputed', '#EF4444', '#38bdf8',
+          ],
+          'circle-radius': [
+            'case',
+            ['==', ['get', 'parcel_number'], selectedParcelId ?? ''],
+            13,
+            9,
+          ],
+          'circle-opacity': 0.95,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 3,
+        },
+      });
+
       // Guarantee the basemap raster sits below ALL vector layers,
       // even after a satellite-toggle re-adds 'base'.
       if (map.getLayer('base')) map.moveLayer('base', 'parcels-fill');
@@ -279,7 +364,7 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
           (map.getSource('corridor') as maplibregl.GeoJSONSource)?.setData(fc as never);
           return;
         }
-        if (!map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ['parcels-fill', 'parcels-dots'] }).length) {
+        if (!map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ['parcels-fill', 'parcels-dots', 'parcel-points'] }).length) {
           clickedParcelRef.current = '';
           map.setFilter('parcels-highlight', ['==', ['get', 'parcel_number'], '']);
         }
@@ -300,6 +385,9 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
         const f = e.features?.[0];
         if (f) map.setFilter('parcels-highlight', ['==', ['get', 'parcel_number'], f.properties.parcel_number as string]);
       });
+      map.on('mousemove', 'parcel-points', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
       map.on('mouseleave', 'parcels-fill', () => {
         map.getCanvas().style.cursor = '';
         // Snap back to the clicked parcel (if any) instead of clearing entirely
@@ -309,13 +397,16 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
         map.getCanvas().style.cursor = '';
         map.setFilter('parcels-highlight', ['==', ['get', 'parcel_number'], clickedParcelRef.current]);
       });
+      map.on('mouseleave', 'parcel-points', () => {
+        map.getCanvas().style.cursor = '';
+      });
 
       // Click → zoom to parcel + popup + callback
       map.on('click', 'parcels-fill', (e: { features?: { properties: Record<string, unknown>; geometry?: { coordinates?: number[][][] } }[]; lngLat: maplibregl.LngLat }) => {
         const f = e.features?.[0];
         if (!f) return;
         const props = f.properties as Record<string, unknown>;
-        const parcel = (props._parcel as Parcel | undefined) ?? (props as unknown as Parcel);
+        const parcel = parcelsRef.current.find((p) => p.id === props.id || p.parcel_number === props.parcel_number);
 
         focusParcel(map, String(props.parcel_number ?? ''), f.geometry);
 
@@ -333,7 +424,7 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
         const f = e.features?.[0];
         if (!f) return;
         const props = f.properties as Record<string, unknown>;
-        const parcel = (props._parcel as Parcel | undefined) ?? (props as unknown as Parcel);
+        const parcel = parcelsRef.current.find((p) => p.id === props.id || p.parcel_number === props.parcel_number);
 
         // Look up the full polygon geometry from the parcels source for proper zoom
         const polyFeat = dataRef.current.features.find(
@@ -351,11 +442,30 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
 
         if (parcel && onParcelSelect) onParcelSelect(parcel);
       });
+      map.on('click', 'parcel-points', (e: { features?: { properties: Record<string, unknown>; geometry?: unknown }[]; lngLat: maplibregl.LngLat }) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        const props = f.properties as Record<string, unknown>;
+        const parcel = parcelsRef.current.find((p) => p.id === props.id || p.parcel_number === props.parcel_number);
+
+        focusParcel(map, String(props.parcel_number ?? ''), f.geometry);
+
+        if (popupRef.current) popupRef.current.remove();
+        popupRef.current = new maplibregl.Popup({ closeOnClick: true })
+          .setLngLat(e.lngLat)
+          .setHTML(
+            `<div style="font-family:system-ui;padding:4px;min-width:160px"><div style="font-weight:600;font-size:13px">${props.parcel_number}</div><div style="font-size:12px;color:#475569">Owner: ${props.owner_name ?? '-'}<br/>Status: ${props.status}<br/>Lat/Lng: ${props.latitude ?? '-'}, ${props.longitude ?? '-'}</div></div>`,
+          )
+          .addTo(map);
+
+        if (parcel && onParcelSelect) onParcelSelect(parcel);
+      });
 
       // Fit to parcels if available (use latest data, not the stale first-render closure)
-      if (dataRef.current.features.length > 0) {
+      if (dataRef.current.features.length > 0 || pointDataRef.current.features.length > 0) {
         const bounds = new maplibregl.LngLatBounds();
         dataRef.current.features.forEach((f) => extendFeatureBounds(bounds, f.geometry));
+        pointDataRef.current.features.forEach((f) => extendFeatureBounds(bounds, f.geometry));
         map.fitBounds(bounds, { padding: 40, maxZoom: 14 });
         fittedRef.current = true;
       }
@@ -381,17 +491,22 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
     // Also sync centroid dots so circles stay visible
     const dotsSrc = map.getSource('parcels-dots') as maplibregl.GeoJSONSource | undefined;
     if (dotsSrc) dotsSrc.setData(dotsRef.current as never);
+    const pointsSrc = map.getSource('parcel-points') as maplibregl.GeoJSONSource | undefined;
+    if (pointsSrc) pointsSrc.setData(pointDataRef.current as never);
     // Force canvas to re-layout + repaint after vector data arrives
     map.resize();
     map.triggerRepaint();
     // Parcels load async — fit to their bounds once, the first time data arrives
-    if (!fittedRef.current && filtered.features.length) {
+    if (!fittedRef.current && (filtered.features.length || pointDataRef.current.features.length)) {
       const bounds = new maplibregl.LngLatBounds();
       filtered.features.forEach((f) => extendFeatureBounds(bounds, f.geometry));
-      map.fitBounds(bounds, { padding: 40, maxZoom: 14 });
-      fittedRef.current = true;
+      pointDataRef.current.features.forEach((f) => extendFeatureBounds(bounds, f.geometry));
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, { padding: 40, maxZoom: 14 });
+        fittedRef.current = true;
+      }
     }
-  }, [filtered]);
+  }, [filtered, pointData]);
 
   // Highlight selected parcel
   useEffect(() => {
@@ -399,9 +514,11 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
     if (!map || !map.getLayer('parcels-highlight')) return;
     if (selectedParcelId) {
       const feat = filtered.features.find((f) => f.id === selectedParcelId);
-      if (feat) focusParcel(map, String(feat.properties.parcel_number ?? ''), feat.geometry);
+      const pointFeat = pointDataRef.current.features.find((f) => f?.id === selectedParcelId);
+      if (pointFeat) focusParcel(map, String(pointFeat.properties.parcel_number ?? ''), pointFeat.geometry);
+      else if (feat) focusParcel(map, String(feat.properties.parcel_number ?? ''), feat.geometry);
     }
-  }, [selectedParcelId, filtered]);
+  }, [selectedParcelId, filtered, pointData]);
 
   const handleToggleSatellite = () => setSatelliteEnabled((prev) => !prev);
 
@@ -472,10 +589,10 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
         onToggleCorridor={handleToggleCorridor}
         corridorCount={corridorCount}
       />
-      {!filtered.features.length && (
+      {!filtered.features.length && !pointData.features.length && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/60 pointer-events-none">
           <span className="text-sm text-slate-200 bg-[#0c0c0c] border border-slate-700 rounded-full px-3 py-1 shadow-sm">
-            {parcels.length ? `${parcels.length} parcel(s) loaded, but none have map geometry` : 'No parcels match filters'}
+            {parcels.length ? `${parcels.length} parcel(s) loaded, but none have map geometry or coordinates` : 'No parcels match filters'}
           </span>
         </div>
       )}

@@ -49,11 +49,28 @@ function toRenderableGeometry(raw: GeoJsonGeometry): GeoJsonGeometry | null {
   return g;
 }
 
+function geometryFromParcel(parcel: Parcel): GeoJsonGeometry | null {
+  if (parcel.geometry) {
+    return toRenderableGeometry(parcel.geometry as GeoJsonGeometry) || (parcel.geometry as GeoJsonGeometry);
+  }
+
+  if (parcel.latitude != null && parcel.longitude != null) {
+    const lat = Number(parcel.latitude);
+    const lng = Number(parcel.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { type: 'Point', coordinates: [lng, lat] };
+    }
+  }
+
+  return null;
+}
+
 function parcelToFeature(parcel: Parcel): MapFeature | null {
-  if (!parcel.geometry) return null;
+  const geometry = geometryFromParcel(parcel);
+  if (!geometry) return null;
   return {
     type: 'Feature',
-    geometry: toRenderableGeometry(parcel.geometry as GeoJsonGeometry) || (parcel.geometry as GeoJsonGeometry),
+    geometry,
     properties: {
       id: parcel.id,
       parcel_number: parcel.parcel_number,
@@ -62,8 +79,8 @@ function parcelToFeature(parcel: Parcel): MapFeature | null {
       owner_name: parcel.owner_name,
       area_hectares: parcel.area_hectares,
       project_id: parcel.project_id,
-      // keep full parcel for popup convenience
-      _parcel: parcel as unknown as Record<string, unknown>,
+      latitude: parcel.latitude,
+      longitude: parcel.longitude,
     },
     id: parcel.id,
   };

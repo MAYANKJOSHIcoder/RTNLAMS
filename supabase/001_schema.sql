@@ -646,8 +646,17 @@ RETURNS SETOF public.parcels
 LANGUAGE sql STABLE
 SECURITY DEFINER SET search_path = public, extensions, postgis AS $$
   SELECT p.* FROM public.parcels p
-  WHERE p.geometry IS NOT NULL
-    AND ST_Within(p.geometry, ST_MakeEnvelope(min_lng, min_lat, max_lng, max_lat, 4326));
+  WHERE (
+      p.geometry IS NOT NULL
+      AND ST_Within(p.geometry, ST_MakeEnvelope(min_lng, min_lat, max_lng, max_lat, 4326))
+    )
+    OR (
+      p.geometry IS NULL
+      AND p.latitude IS NOT NULL
+      AND p.longitude IS NOT NULL
+      AND p.longitude BETWEEN min_lng AND max_lng
+      AND p.latitude BETWEEN min_lat AND max_lat
+    );
 $$;
 
 CREATE OR REPLACE FUNCTION public.parcels_nearby(
@@ -657,10 +666,18 @@ RETURNS SETOF public.parcels
 LANGUAGE sql STABLE
 SECURITY DEFINER SET search_path = public, extensions, postgis AS $$
   SELECT p.* FROM public.parcels p
-  WHERE p.geometry IS NOT NULL
-    AND ST_DWithin(p.geometry::geography,
-                   ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography,
-                   radius_meters);
+  WHERE ST_DWithin(
+    COALESCE(
+      p.geometry::geometry,
+      CASE
+        WHEN p.latitude IS NOT NULL AND p.longitude IS NOT NULL
+        THEN ST_SetSRID(ST_MakePoint(p.longitude, p.latitude), 4326)
+        ELSE NULL
+      END
+    )::geography,
+    ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography,
+    radius_meters
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.parcels_intersecting_corridor(corridor JSONB)
@@ -668,9 +685,17 @@ RETURNS SETOF public.parcels
 LANGUAGE sql STABLE
 SECURITY DEFINER SET search_path = public, extensions, postgis AS $$
   SELECT p.* FROM public.parcels p
-  WHERE p.geometry IS NOT NULL
-    AND ST_Intersects(p.geometry,
-                      ST_SetSRID(ST_GeomFromGeoJSON(corridor::text), 4326));
+  WHERE ST_Intersects(
+    COALESCE(
+      p.geometry::geometry,
+      CASE
+        WHEN p.latitude IS NOT NULL AND p.longitude IS NOT NULL
+        THEN ST_SetSRID(ST_MakePoint(p.longitude, p.latitude), 4326)
+        ELSE NULL
+      END
+    ),
+    ST_SetSRID(ST_GeomFromGeoJSON(corridor::text), 4326)
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.get_parcel_current_stages(p_project_id TEXT DEFAULT NULL)

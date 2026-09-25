@@ -13,16 +13,19 @@ export function useGeminiExtraction() {
       imageBase64,
       promptType = 'deed',
       documentId,
+      language,
     }: {
       file?: File;
       imageBase64?: string;
       promptType?: PromptType;
       documentId?: string;
+      /** App language code (en/hi/ur/tam/…) — selects the Tesseract traineddata set. */
+      language?: string | null;
     }): Promise<GeminiExtractionResponse> => {
       const prompt = PROMPT_MAP[promptType] ?? PROMPT_MAP.deed;
       let raw: string;
-      if (file) raw = await extractFromFile(file, prompt);
-      else if (imageBase64) raw = await callGemini({ prompt, imageBase64 });
+      if (file) raw = await extractFromFile(file, prompt, language);
+      else if (imageBase64) raw = await callGemini({ prompt, imageBase64, language });
       else {
         // Direct text prompt (no image) — skips Tesseract/IndicTrans preprocessing
         raw = await callGemini({ prompt });

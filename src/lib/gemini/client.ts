@@ -1,12 +1,17 @@
 /**
  * Gemini Client — PROMPT 13
- * Hybrid: Tesseract OCR (raw text) → IndicTrans (detect/translate) → Gemini (structured JSON)
+ * Hybrid: Tesseract OCR (raw text, language-selected traineddata) → IndicTrans
+ * (detect/translate) → Gemini (structured JSON).
  * Rate limit 15/min, retries 3. The Gemini call is proxied through the
  * serverless function /api/gemini — the API key never reaches the browser.
  */
 import { config, isIndicTransConfigured } from '../config';
 import { supabase } from '../supabase/client';
+import { tesseractLangsFor } from './ocr-langs';
 import type { Worker } from 'tesseract.js';
+
+// Re-exported so callers/tests can keep importing language helpers from the client.
+export { OCR_LANG_MAP, OCR_DEFAULT_LANGS, tesseractLangsFor } from './ocr-langs';
 
 const RATE_LIMIT = 15;
 const WINDOW_MS = 60_000;
@@ -35,26 +40,52 @@ async function delay(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// Real Tesseract OCR (WASM, runs in a Web Worker; eng+hin+urd traineddata cached after first use).
+// Real Tesseract OCR (WASM, runs in a Web Worker).
 // tesseract.js is ~2MB — dynamically imported only when OCR actually runs, never on page load.
-let tesseractWorker: Promise<Worker> | null = null;
-async function getTesseractWorker(): Promise<Worker> {
-  tesseractWorker ??= (async () => {
+// Languages are chosen per document (see ocr-langs.ts) so a Tamil deed only pays for
+// tam.traineddata instead of every Indic model up front.
+
+// LRU cache of workers keyed by language set — each worker holds its own traineddata in memory.
+const MAX_TESSERACT_WORKERS = 3;
+const tesseractWorkers = new Map<string, Promise<Worker>>();
+
+function getTesseractWorker(langs: string[]): Promise<Worker> {
+  const key = langs.join('+');
+  const cached = tesseractWorkers.get(key);
+  if (cached) {
+    tesseractWorkers.delete(key); // re-insert to refresh LRU order
+    tesseractWorkers.set(key, cached);
+    return cached;
+  }
+
+  const created = (async () => {
     const { createWorker } = await import('tesseract.js');
-    return createWorker(['eng', 'hin', 'urd']);
-  })();
-  return tesseractWorker;
+    return createWorker(langs);
+  })().catch((e) => {
+    tesseractWorkers.delete(key); // don't cache a failed init — allow retry
+    throw e;
+  });
+  tesseractWorkers.set(key, created);
+
+  // Evict the least-recently-used worker (best-effort terminate, never blocks OCR)
+  while (tesseractWorkers.size > MAX_TESSERACT_WORKERS) {
+    const oldestKey = tesseractWorkers.keys().next().value as string;
+    const oldest = tesseractWorkers.get(oldestKey);
+    tesseractWorkers.delete(oldestKey);
+    oldest?.then((w) => w.terminate()).catch(() => {});
+  }
+  return created;
 }
 
-async function runTesseract(imageBase64: string, mimeType: string): Promise<string> {
+async function runTesseract(imageBase64: string, mimeType: string, appLang?: string | null): Promise<string> {
   if (!imageBase64 || mimeType === 'application/pdf') return ''; // PDFs go straight to Gemini vision
   try {
-    const worker = await getTesseractWorker();
+    const worker = await getTesseractWorker(tesseractLangsFor(appLang));
     const { data: { text } } = await worker.recognize(`data:${mimeType};base64,${imageBase64}`);
     return text.trim();
   } catch (e) {
     console.warn('[gemini] Tesseract failed, continuing without local OCR:', (e as Error).message);
-    pipelineWarnings.push('Tesseract OCR failed — Gemini vision used alone');
+    pipelineWarnings.push(`Tesseract OCR failed (${tesseractLangsFor(appLang).join('+')}) — Gemini vision used alone`);
     return '';
   }
 }
@@ -101,23 +132,26 @@ interface GeminiOptions {
   prompt: string;
   imageBase64?: string;
   mimeType?: string;
+  /** App language code (en/hi/ur/tam/…) — picks the Tesseract traineddata set. */
+  language?: string | null;
   retries?: number;
 }
 
-export async function callGemini({ prompt, imageBase64, mimeType = 'image/jpeg', retries = MAX_RETRIES }: GeminiOptions): Promise<string> {
+export async function callGemini({ prompt, imageBase64, mimeType = 'image/jpeg', language, retries = MAX_RETRIES }: GeminiOptions): Promise<string> {
   checkRateLimit();
 
   // Build hybrid context: Tesseract + IndicTrans preprocessing (both client-side, free)
   let tesseractText = '';
   let indic: { detectedLanguage: string; translatedText: string } = { detectedLanguage: 'en', translatedText: '' };
   if (imageBase64) {
-    tesseractText = await runTesseract(imageBase64, mimeType);
+    tesseractText = await runTesseract(imageBase64, mimeType, language);
     if (tesseractText) indic = await runIndicTrans(tesseractText);
   }
 
   const combinedPrompt = `${prompt}
 
 --- HYBRID PREPROCESSING CONTEXT (DO NOT RE-OCR, RECONCILE THESE) ---
+Document language hint: ${language ? String(language).trim().toLowerCase() : 'unspecified'} (Tesseract langs: ${tesseractLangsFor(language).join('+')})
 Tesseract OCR raw: ${tesseractText.slice(0, 4000)}
 IndicTrans detected_language: ${indic.detectedLanguage}
 IndicTrans translated_text: ${indic.translatedText.slice(0, 4000)}
@@ -158,7 +192,7 @@ Reconcile both outputs, preserve original_text, include translated_text, detecte
 }
 
 // Convenience: upload file → base64 → callGemini
-export async function extractFromFile(file: File, prompt: string): Promise<string> {
+export async function extractFromFile(file: File, prompt: string, language?: string | null): Promise<string> {
   const base64 = await new Promise<string>((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(String(r.result));
@@ -167,5 +201,5 @@ export async function extractFromFile(file: File, prompt: string): Promise<strin
   });
   const mime = file.type || 'image/jpeg';
   const cleanB64 = base64.replace(/^data:[^;]+;base64,/, '');
-  return callGemini({ prompt, imageBase64: cleanB64, mimeType: mime });
+  return callGemini({ prompt, imageBase64: cleanB64, mimeType: mime, language });
 }

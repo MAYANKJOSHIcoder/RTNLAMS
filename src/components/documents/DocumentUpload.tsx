@@ -9,6 +9,7 @@ import { useGeminiExtraction } from '../../hooks/useGemini';
 import type { PromptType } from '../../lib/gemini/prompts';
 import { compressImage } from '../../lib/utils/image';
 
+// App language codes — kept in sync with OCR_LANG_MAP (src/lib/gemini/ocr-langs.ts)
 const LANGUAGES = [
   { value: 'en', label: 'English' },
   { value: 'hi', label: 'Hindi' },
@@ -21,6 +22,9 @@ const LANGUAGES = [
   { value: 'gu', label: 'Gujarati' },
   { value: 'kn', label: 'Kannada' },
   { value: 'ml', label: 'Malayalam' },
+  { value: 'or', label: 'Odia' },
+  { value: 'as', label: 'Assamese' },
+  { value: 'sa', label: 'Sanskrit' },
 ];
 
 interface DocumentUploadProps {
@@ -56,8 +60,9 @@ export default function DocumentUpload({ parcelId, onUploaded }: DocumentUploadP
       setFile(null);
       if (inputRef.current) inputRef.current.value = '';
       onUploaded?.();
-      // Auto-run OCR pipeline (Tesseract → IndicTrans → Gemini) right after upload
-      await extract.mutateAsync({ file, documentId: doc.id, promptType });
+      // Auto-run OCR pipeline (Tesseract → IndicTrans → Gemini) right after upload.
+      // `language` picks the Tesseract traineddata set (eng + the selected Indic script).
+      await extract.mutateAsync({ file, documentId: doc.id, promptType, language });
       recalcRisk.mutate(parcelId);
     } catch {
       /* toasts already shown by the mutations */

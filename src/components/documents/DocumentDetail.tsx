@@ -119,7 +119,7 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
     try {
       const blob = await downloadObject('documents', document.file_url);
       const file = new File([blob], document.file_name ?? 'document.pdf', { type: blob.type || 'application/pdf' });
-      extract.mutate({ file, promptType: reextractType, documentId: document.id });
+      extract.mutate({ file, promptType: reextractType, documentId: document.id, language: document.language ?? null });
     } catch {
       toast.error('Failed to fetch document file for re-extraction');
     }

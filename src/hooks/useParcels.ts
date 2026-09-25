@@ -58,7 +58,9 @@ function geometryFromParcel(parcel: Parcel): GeoJsonGeometry | null {
     const lat = Number(parcel.latitude);
     const lng = Number(parcel.longitude);
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      return { type: 'Point', coordinates: [lng, lat] };
+      // Same 0.004° square the add-parcel modal / CSV import stores, so a lat/lng-only
+      // parcel is still drawable by the `fill`/`line` layers (a bare Point cannot be).
+      return toRenderableGeometry({ type: 'Point', coordinates: [lng, lat] });
     }
   }
 

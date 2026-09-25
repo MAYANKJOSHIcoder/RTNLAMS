@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
+import { setWorkerUrl } from 'maplibre-gl';
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import toast from 'react-hot-toast';
 import { useParcelsGeoJson, statusColor } from '../../hooks/useParcels';
@@ -7,6 +9,19 @@ import { getParcelsIntersectingCorridor } from '../../lib/supabase/queries';
 import { config } from '../../lib/config';
 import type { Parcel } from '../../lib/types';
 import MapControls from './MapControls';
+
+// ---------------------------------------------------------------------------
+// MapLibre GL v6 runs tile + GeoJSON parsing in a Web Worker whose script it
+// resolves at runtime from `import.meta.url` (a `maplibre-gl-worker.mjs` file
+// expected to sit next to the bundle). Vite neither serves that path in dev
+// (`node_modules/.vite/deps/`) nor emits it in the build (`dist/assets/`), so
+// the worker 404s, never answers a single message and every tile/feature read
+// hangs silently: the map paints no basemap and no parcels at all — while the
+// React side looks perfectly healthy. `?worker&url` makes Vite bundle + serve
+// the worker for us (hashed asset in build, transformed module in dev).
+// Must run before any `new maplibregl.Map(...)`.
+// ---------------------------------------------------------------------------
+setWorkerUrl(maplibreWorkerUrl);
 
 interface ParcelMapProps {
   projectId?: string;
@@ -223,6 +238,19 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
     });
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    // Without this, a dead worker / blocked tile host shows up as a silently blank
+    // map (no React error, no overlay). Log every map error; toast the worker/CSP
+    // ones once — they are the ones that blank the whole canvas.
+    let renderFailureReported = false;
+    map.on('error', (e) => {
+      console.error('[ParcelMap]', e?.error ?? e);
+      const msg = String(e?.error?.message ?? '');
+      if (!renderFailureReported && /worker|content security policy/i.test(msg)) {
+        renderFailureReported = true;
+        toast.error(`Map renderer failed to start: ${msg}`);
+      }
+    });
 
     // ResizeObserver: re-run map.resize() when the container gets its real size.
     // Fixes stale viewport when mounted inside Suspense / lazy chunk.

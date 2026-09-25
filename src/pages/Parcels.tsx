@@ -344,11 +344,15 @@ export default function Parcels() {
             <MapPin size={14} /> {selected ? `Location: ${selected.parcel_number}` : 'Select a parcel to locate'}
           </h3>
           <Suspense fallback={<div className="h-[380px] rounded-lg border border-slate-200 animate-pulse bg-white/[0.02] flex items-center justify-center text-xs text-slate-500">Loading map…</div>}>
-            {selected ? (
-              <ParcelMap projectId={projectId ?? undefined} selectedParcelId={selected.id} height="380px" />
-            ) : (
-              <ParcelMap projectId={projectId ?? undefined} height="380px" />
-            )}
+            <ParcelMap
+              projectId={projectId ?? undefined}
+              selectedParcelId={selected?.id ?? null}
+              onParcelSelect={(p) => {
+                setSelected(p);
+                setTab('Overview');
+              }}
+              height="380px"
+            />
           </Suspense>
         </div>
       </div>

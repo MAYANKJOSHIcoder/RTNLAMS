@@ -10,7 +10,7 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase/client';
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
   { to: '/parcels', label: 'Parcels', icon: Map, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
-  { to: '/queries', label: 'Raised Queries', icon: Inbox, roles: ['admin', 'field_officer', 'auditor'] },
+  { to: '/queries', label: 'Raised Queries', icon: Inbox, roles: ['admin', 'field_officer', 'auditor', 'citizen'] },
   { to: '/documents', label: 'Documents', icon: FileText, roles: ['admin', 'field_officer', 'auditor'] },
   { to: '/hearings', label: 'Hearings', icon: Gavel, roles: ['admin', 'field_officer', 'auditor'] },
   { to: '/compensation', label: 'Compensation', icon: Wallet, roles: ['admin', 'field_officer', 'auditor'] },

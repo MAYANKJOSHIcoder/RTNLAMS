@@ -218,3 +218,72 @@ export interface GeminiExtractionResponse {
 
 // Supabase bbox query helper
 export type BBox = [number, number, number, number]; // [minLng, minLat, maxLng, maxLat]
+
+// ---------------------------------------------------------------------------
+// Raised Queries & Notifications Domain Types
+// ---------------------------------------------------------------------------
+export type QueryCategory =
+  | 'Land Record'
+  | 'Document'
+  | 'Compensation'
+  | 'Survey'
+  | 'Acquisition'
+  | 'Payment'
+  | 'Other';
+
+export type QueryStatus = 'open' | 'under_review' | 'resolved' | 'reopened';
+
+export interface RaisedQuery {
+  id: string;
+  parcel_id: string;
+  citizen_id: string;
+  category: QueryCategory;
+  subject: string;
+  description: string;
+  status: QueryStatus;
+  assigned_to: string | null;
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
+  // joined metadata
+  citizen?: {
+    full_name: string;
+    aadhaar?: string | null;
+    phone?: string | null;
+  } | null;
+  parcel?: {
+    parcel_number: string;
+    village?: string | null;
+  } | null;
+  assigned_officer?: {
+    full_name: string;
+  } | null;
+}
+
+export interface QueryMessage {
+  id: string;
+  query_id: string;
+  sender_id: string;
+  message: string;
+  attachment_path: string | null;
+  created_at: string;
+  sender?: {
+    full_name: string;
+    role: UserRole;
+  } | null;
+}
+
+export interface NotificationItem {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  message: string;
+  entity_type: string;
+  entity_id: string | null;
+  parcel_id: string | null;
+  query_id: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+

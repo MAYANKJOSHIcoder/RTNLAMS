@@ -21,6 +21,9 @@ import StageTimeline from '../components/parcels/StageTimeline';
 import StageBoard from '../components/parcels/StageBoard';
 import AddParcelModal from '../components/parcels/AddParcelModal';
 import DocumentList from '../components/documents/DocumentList';
+import RaiseQueryModal from '../components/queries/RaiseQueryModal';
+import { useQueries } from '../hooks/useQueries';
+import { HelpCircle } from 'lucide-react';
 import type { Parcel, AcquisitionStage } from '../lib/types';
 import { can } from '../lib/permissions';
 import { STAGES } from '../lib/stages';
@@ -29,7 +32,7 @@ import { AREA_UNITS, UNIT_LABELS, formatArea, toHectares, SQM_PER_UNIT, type Are
 // maplibre-gl is ~260KB gzipped — load the map chunk only when its panel mounts
 const ParcelMap = lazy(() => import('../components/maps/ParcelMap'));
 
-const TABS = ['Overview', 'Documents', 'Timeline', 'Hearings', 'Compensation', 'Audit'] as const;
+const TABS = ['Overview', 'Documents', 'Timeline', 'Hearings', 'Compensation', 'Audit', 'Queries'] as const;
 
 function pointToParcelPolygon(latitude?: string, longitude?: string): Parcel['geometry'] {
   if (!latitude || !longitude) return null;
@@ -68,6 +71,7 @@ export default function Parcels() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Overview');
   const [page, setPage] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
+  const [showRaiseQuery, setShowRaiseQuery] = useState(false);
   const [view, setView] = useState<'table' | 'board'>('table');
   const [areaUnit, setAreaUnit] = useState<AreaUnit>('hectare');
   const pageSize = 8;
@@ -109,6 +113,8 @@ export default function Parcels() {
   const { data: awards = [] } = useCompensation(selected?.id);
   const { data: audits = [] } = useAuditLogs(selected?.id);
   const { data: risks = [] } = useRiskAssessments(selected?.id);
+  const { data: queriesList = [] } = useQueries(selected?.id);
+
 
   const handleCsv = async (file: File | null) => {
     if (!file) return;
@@ -430,8 +436,51 @@ export default function Parcels() {
                 {docs.length > 0 && <div className="text-xs text-slate-400">{docs.length} documents linked</div>}
               </div>
             )}
+            {tab === 'Queries' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">{queriesList.length} queries on this parcel</span>
+                  <Button size="sm" variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setShowRaiseQuery(true)}>
+                    <HelpCircle size={14} /> Raise Query
+                  </Button>
+                </div>
+                {queriesList.length === 0 ? (
+                  <div className="text-sm text-slate-500 py-4 text-center">No queries raised on this parcel yet.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {queriesList.map((q) => (
+                      <div
+                        key={q.id}
+                        onClick={() => navigate(`/queries?id=${q.id}`)}
+                        className="p-3 border border-white/10 rounded-lg hover:bg-white/[0.04] cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-xs text-white">{q.subject}</span>
+                          <Badge variant={q.status === 'resolved' ? 'success' : q.status === 'under_review' ? 'warning' : 'neutral'}>
+                            {q.status.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1 line-clamp-1">{q.description}</p>
+                        <div className="text-[11px] text-slate-500 mt-1">
+                          Category: {q.category} · {new Date(q.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
+      )}
+
+      {selected && (
+        <RaiseQueryModal
+          open={showRaiseQuery}
+          onClose={() => setShowRaiseQuery(false)}
+          parcelId={selected.id}
+          parcelNumber={selected.parcel_number}
+        />
       )}
 
       {/* Add parcel modal */}

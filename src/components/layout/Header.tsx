@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Bell, Clock, FileText, Gavel, Menu, MessageSquare, Wallet } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Bell, Clock, FileText, Gavel, Menu, MessageSquare, Wallet, CheckCheck } from 'lucide-react';
 import ServiceHealth from './ServiceHealth';
 import UserMenu from './UserMenu';
-import QueryModal from '../queries/QueryModal';
-import { useAuth } from '../../context/AuthContext';
-import { CITIZEN_EVENTS, FAKE_QUERIES, STAFF_EVENTS, type FakeEvent, type FakeQuery } from '../../lib/fakeQueries';
+import {
+  useNotifications,
+  useUnreadNotificationsCount,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+} from '../../hooks/useNotifications';
 import { timeAgo } from '../../lib/utils/helpers';
+import { notificationTarget } from '../../lib/queries';
+import type { NotificationItem } from '../../lib/types';
 
 const crumbs: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -18,26 +23,29 @@ const crumbs: Record<string, string> = {
   '/queries': 'Raised Queries',
 };
 
-const EVENT_ICONS: Record<FakeEvent['kind'], typeof Bell> = {
+const TYPE_ICONS: Record<string, typeof Bell> = {
+  query_created: MessageSquare,
+  query_reply: MessageSquare,
+  query_resolved: MessageSquare,
+  query_reopened: MessageSquare,
   document: FileText,
-  query: MessageSquare,
   stage: Clock,
   payment: Wallet,
   hearing: Gavel,
 };
 
+
 export default function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const location = useLocation();
-  const { profile } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [seen, setSeen] = useState(false);
-  const [query, setQuery] = useState<FakeQuery | null>(null);
   const bellRef = useRef<HTMLDivElement>(null);
 
-  // Notifications go to the person who needs them: staff see queries/parcels
-  // happening on their pipeline, citizens only see updates on their own case.
-  const events = profile?.role === 'citizen' ? CITIZEN_EVENTS : STAFF_EVENTS;
-  const count = seen ? 0 : events.length;
+  const { data: notifications = [] } = useNotifications();
+  const { data: unreadCount = 0 } = useUnreadNotificationsCount();
+  const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
+
   const current = crumbs[location.pathname] ?? '';
 
   useEffect(() => {
@@ -48,9 +56,13 @@ export default function Header({ onMenuToggle }: { onMenuToggle?: () => void }) 
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  const handleEvent = (ev: FakeEvent) => {
+  const handleNotificationClick = async (item: NotificationItem) => {
     setOpen(false);
-    if (ev.queryId) setQuery(FAKE_QUERIES.find((q) => q.id === ev.queryId) ?? null);
+    if (!item.is_read) {
+      await markRead.mutateAsync(item.id);
+    }
+    const target = notificationTarget(item);
+    if (target) navigate(target);
   };
 
   return (
@@ -78,50 +90,75 @@ export default function Header({ onMenuToggle }: { onMenuToggle?: () => void }) 
 
           <div className="relative" ref={bellRef}>
             <button
-              aria-label={`Notifications ${count} unread`}
+              aria-label={`Notifications ${unreadCount} unread`}
               aria-haspopup="menu"
               aria-expanded={open}
-              onClick={() => {
-                setOpen(!open);
-                setSeen(true);
-              }}
+              onClick={() => setOpen(!open)}
               className="relative p-2 hover:bg-white/10 rounded-md cursor-pointer transition-colors"
             >
               <Bell size={18} />
-              {count > 0 && (
+              {unreadCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-black">
-                  {count}
+                  {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
             </button>
 
             {open && (
               <div
-                className="absolute right-0 mt-2 w-80 max-h-96 overflow-auto bg-[#0c0c0c] border border-slate-200 rounded-lg shadow-lg py-1 z-50"
+                className="absolute right-0 mt-2 w-80 max-h-96 overflow-auto bg-[#0c0c0c] border border-white/15 rounded-lg shadow-xl py-1 z-50 divide-y divide-white/5"
                 role="menu"
                 aria-label="Notifications"
               >
-                <div className="px-3 py-2 border-b border-slate-100 text-sm font-medium text-slate-900">Notifications</div>
-                {events.map((ev) => {
-                  const Icon = EVENT_ICONS[ev.kind];
-                  return (
+                <div className="px-3 py-2 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-white">Notifications</span>
+                  {unreadCount > 0 && (
                     <button
-                      key={ev.id}
-                      onClick={() => handleEvent(ev)}
-                      role="menuitem"
-                      className={`w-full text-left px-3 py-2.5 hover:bg-white/[0.04] flex items-start gap-2.5 ${ev.queryId ? 'cursor-pointer' : 'cursor-default'}`}
+                      onClick={() => markAllRead.mutate()}
+                      className="text-[11px] text-sky-400 hover:text-sky-300 flex items-center gap-1 cursor-pointer"
                     >
-                      <Icon size={14} className="mt-0.5 shrink-0 text-slate-500" />
-                      <span className="min-w-0">
-                        <span className="block text-xs text-slate-900">{ev.text}</span>
-                        <span className="block text-[10px] text-slate-500 mt-0.5">
-                          {timeAgo(ev.at)}
-                          {ev.queryId ? ' · click to read' : ''}
-                        </span>
-                      </span>
+                      <CheckCheck size={12} /> Mark all read
                     </button>
-                  );
-                })}
+                  )}
+                </div>
+
+                {notifications.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-xs text-slate-500">
+                    No notifications
+                  </div>
+                ) : (
+                  notifications.map((item) => {
+                    const Icon = TYPE_ICONS[item.type] || Bell;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleNotificationClick(item)}
+                        role="menuitem"
+                        className={`w-full text-left px-3 py-2.5 hover:bg-white/[0.04] flex items-start gap-2.5 cursor-pointer transition-colors ${
+                          item.is_read ? 'opacity-70' : 'bg-white/[0.02]'
+                        }`}
+                      >
+                        <Icon size={14} className={`mt-0.5 shrink-0 ${item.is_read ? 'text-slate-500' : 'text-sky-400'}`} />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center justify-between gap-1">
+                            <span className={`block text-xs truncate ${item.is_read ? 'text-slate-300 font-normal' : 'text-white font-semibold'}`}>
+                              {item.title}
+                            </span>
+                            {!item.is_read && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0" />
+                            )}
+                          </span>
+                          <span className="block text-xs text-slate-400 line-clamp-2 mt-0.5 leading-snug">
+                            {item.message}
+                          </span>
+                          <span className="block text-[10px] text-slate-500 mt-1">
+                            {timeAgo(item.created_at)}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             )}
           </div>
@@ -129,8 +166,6 @@ export default function Header({ onMenuToggle }: { onMenuToggle?: () => void }) 
           <UserMenu />
         </div>
       </header>
-
-      <QueryModal query={query} onClose={() => setQuery(null)} />
     </>
   );
 }

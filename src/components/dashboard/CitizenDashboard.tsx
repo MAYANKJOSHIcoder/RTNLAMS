@@ -1,14 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, AlertTriangle, Clock } from 'lucide-react';
+import { MapPin, AlertTriangle, Clock, HelpCircle } from 'lucide-react';
 import { useParcels } from '../../hooks/useParcels';
 import { useStages } from '../../hooks/useStages';
 import { useCompensation } from '../../hooks/useCompensation';
 import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
 import { formatArea } from '../../lib/units';
 import type { AreaUnit } from '../../lib/units';
 import { STAGES } from '../../lib/stages';
 import type { Parcel } from '../../lib/types';
+import RaiseQueryModal from '../queries/RaiseQueryModal';
+
 
 /**
  * Citizen roadmap — own parcels (RLS-scoped by aadhaar) with the 12-stage
@@ -48,6 +51,7 @@ export default function CitizenDashboard() {
 }
 
 function CitizenParcelCard({ parcel }: { parcel: Parcel }) {
+  const [queryModalOpen, setQueryModalOpen] = useState(false);
   const { data: stages = [] } = useStages(parcel.id);
   const { data: awards = [] } = useCompensation(parcel.id);
   const award = awards[0];
@@ -67,64 +71,81 @@ function CitizenParcelCard({ parcel }: { parcel: Parcel }) {
   const currentDef = current ? STAGES.find((s) => s.stage_number === current.stage_number) : undefined;
 
   return (
-    <Link
-      to={`/parcels?parcel=${parcel.id}`}
-      className="block bg-[#0c0c0c] border border-slate-200 rounded-xl p-4 hover:border-slate-400 transition-colors"
-    >
+    <div className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-4 transition-colors">
       <div className="flex flex-wrap items-center gap-2 justify-between">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold text-slate-900">{parcel.parcel_number}</span>
+        <Link to={`/parcels?parcel=${parcel.id}`} className="flex items-center gap-2 flex-wrap group">
+          <span className="font-semibold text-slate-900 group-hover:text-sky-400 transition-colors">{parcel.parcel_number}</span>
           <Badge variant={parcel.status === 'disputed' ? 'danger' : 'neutral'}>{parcel.status}</Badge>
           <span className="text-xs text-slate-500">{formatArea(parcel.area_hectares, 'hectare' as AreaUnit)}{parcel.village ? ` · ${parcel.village}` : ''}</span>
+        </Link>
+        <div className="flex items-center gap-2">
+          {award && (
+            <Badge variant={award.payment_status === 'completed' ? 'success' : 'warning'}>
+              Payment: {award.payment_status === 'completed' ? '₹ paid' : '₹' + Number(award.awarded_amount).toLocaleString('en-IN') + ' ' + award.payment_status}
+            </Badge>
+          )}
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setQueryModalOpen(true)}
+            className="text-xs h-7 gap-1 cursor-pointer"
+          >
+            <HelpCircle size={13} />
+            Raise Query
+          </Button>
         </div>
-        {award && (
-          <Badge variant={award.payment_status === 'completed' ? 'success' : 'warning'}>
-            Payment: {award.payment_status === 'completed' ? '₹ paid' : '₹' + Number(award.awarded_amount).toLocaleString('en-IN') + ' ' + award.payment_status}
-          </Badge>
-        )}
       </div>
 
       {/* 12-stage stepper roadmap */}
-      <div className="flex items-center gap-0.5 mt-3" aria-label="Acquisition progress">
-        {STAGES.map((def, i) => {
-          const st = stages.find((s) => s.stage_number === def.stage_number);
-          const status = st?.status ?? 'pending';
-          return (
-            <div key={def.stage_number} className="flex-1 flex flex-col items-center gap-1" title={`${def.stage_number}. ${def.stage_name} — ${status}`}>
-              <div
-                className={`h-1.5 w-full rounded-full ${
-                  status === 'completed' ? 'bg-green-500'
-                  : status === 'in_progress' ? 'bg-white'
-                  : status === 'breached' ? 'bg-red-500'
-                  : 'bg-white/10'
-                }`}
-              />
-              {i === 0 || i === 11 || st?.status === 'in_progress' ? (
-                <span className={`text-[9px] ${st?.status === 'in_progress' ? 'text-white font-semibold' : 'text-slate-500'}`}>
-                  {def.stage_number}
-                </span>
-              ) : (
-                <span className="text-[9px] text-transparent">·</span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <Link to={`/parcels?parcel=${parcel.id}`} className="block">
+        <div className="flex items-center gap-0.5 mt-3" aria-label="Acquisition progress">
+          {STAGES.map((def, i) => {
+            const st = stages.find((s) => s.stage_number === def.stage_number);
+            const status = st?.status ?? 'pending';
+            return (
+              <div key={def.stage_number} className="flex-1 flex flex-col items-center gap-1" title={`${def.stage_number}. ${def.stage_name} — ${status}`}>
+                <div
+                  className={`h-1.5 w-full rounded-full ${
+                    status === 'completed' ? 'bg-green-500'
+                    : status === 'in_progress' ? 'bg-white'
+                    : status === 'breached' ? 'bg-red-500'
+                    : 'bg-white/10'
+                  }`}
+                />
+                {i === 0 || i === 11 || st?.status === 'in_progress' ? (
+                  <span className={`text-[9px] ${st?.status === 'in_progress' ? 'text-white font-semibold' : 'text-slate-500'}`}>
+                    {def.stage_number}
+                  </span>
+                ) : (
+                  <span className="text-[9px] text-transparent">·</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
-      <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-slate-500">
-        {breached ? (
-          <span className="flex items-center gap-1 text-red-400"><AlertTriangle size={12} /> Stage {breached.stage_number} SLA breached — authority notified</span>
-        ) : currentDef ? (
-          <span>Current: <span className="text-slate-300 font-medium">{currentDef.stage_number}. {currentDef.stage_name}</span></span>
-        ) : (
-          <span>Completed — all 12 stages done</span>
-        )}
-        <span className="flex items-center gap-1">
-          <Clock size={12} />
-          {completedCount}/12 stages
-          {nextDeadline && !breached ? ` · next ${new Date(nextDeadline).toLocaleDateString()}` : ''}
-        </span>
-      </div>
-    </Link>
+        <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-slate-500">
+          {breached ? (
+            <span className="flex items-center gap-1 text-red-400"><AlertTriangle size={12} /> Stage {breached.stage_number} SLA breached — authority notified</span>
+          ) : currentDef ? (
+            <span>Current: <span className="text-slate-300 font-medium">{currentDef.stage_number}. {currentDef.stage_name}</span></span>
+          ) : (
+            <span>Completed — all 12 stages done</span>
+          )}
+          <span className="flex items-center gap-1">
+            <Clock size={12} />
+            {completedCount}/12 stages
+            {nextDeadline && !breached ? ` · next ${new Date(nextDeadline).toLocaleDateString()}` : ''}
+          </span>
+        </div>
+      </Link>
+
+      <RaiseQueryModal
+        open={queryModalOpen}
+        onClose={() => setQueryModalOpen(false)}
+        parcelId={parcel.id}
+        parcelNumber={parcel.parcel_number}
+      />
+    </div>
   );
 }

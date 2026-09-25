@@ -11,6 +11,9 @@
 
 -- tables (policies, triggers, FK indexes go with them)
 DROP TABLE IF EXISTS
+  public.notifications,
+  public.query_messages,
+  public.queries,
   public.risk_assessments,
   public.audit_logs,
   public.compensation_awards,
@@ -24,6 +27,12 @@ DROP TABLE IF EXISTS
 CASCADE;
 
 -- functions (CASCADE also removes on_auth_user_created on auth.users)
+DROP FUNCTION IF EXISTS public.notify_on_query_created() CASCADE;
+DROP FUNCTION IF EXISTS public.notify_on_query_message() CASCADE;
+DROP FUNCTION IF EXISTS public.notify_on_query_status_change() CASCADE;
+DROP FUNCTION IF EXISTS public.push_notification_to_staff(text, text, text, varchar, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.push_notification(uuid, text, text, text, text, text, varchar, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.query_parcel_label(varchar) CASCADE;
 DROP FUNCTION IF EXISTS public.advance_parcel_stage(text) CASCADE;
 DROP FUNCTION IF EXISTS public.resolve_breached_stage(text, timestamptz) CASCADE;
 DROP FUNCTION IF EXISTS public.mark_overdue_breached() CASCADE;
@@ -41,6 +50,7 @@ DROP FUNCTION IF EXISTS public.sync_parcel_geometry() CASCADE;
 DROP FUNCTION IF EXISTS public.parcels_within_bbox(float, float, float, float) CASCADE;
 DROP FUNCTION IF EXISTS public.parcels_nearby(float, float, float) CASCADE;
 DROP FUNCTION IF EXISTS public.parcels_nearby(float, float, integer) CASCADE;
+DROP FUNCTION IF EXISTS public.parcels_intersecting_corridor(jsonb, float) CASCADE;
 DROP FUNCTION IF EXISTS public.parcels_intersecting_corridor(jsonb) CASCADE;
 DROP FUNCTION IF EXISTS public.parcels_intersecting_corridor(text) CASCADE;
 DROP FUNCTION IF EXISTS public.get_parcel_current_stages(text) CASCADE;

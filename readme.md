@@ -61,6 +61,10 @@ cp .env.example .env
 #                                triggers, storage buckets, spatial RPCs, aadhaar)
 #   supabase/002_seed.sql       (3 projects, 30 parcels spread across stages 2-11,
 #                                docs, hearings, awards, audits, risks)
+#   supabase/003_rls_hardening.sql   (per-bucket storage policies + invoker-rights RPCs)
+#   supabase/004_corridor_width.sql  (corridor matching as an area, not a zero-width line)
+#   supabase/005_queries_notifications.sql  (raised queries + threaded messages +
+#                                per-user notifications, with RLS & real-event triggers)
 
 # 4. Register 4 accounts via the app (any emails), then assign staff roles:
 #   node scripts/set-role.mjs <email> admin
@@ -72,6 +76,10 @@ cp .env.example .env
 cd indictrans-server
 ./start.sh          # Linux/macOS (or start.bat on Windows)
 # First run only: python download_models.py (accept HF license first)
+# Model direction: the client asks for tgt_lang="en", so start.sh/start.bat
+# default INDIC_MODEL to ai4bharat/indictrans2-indic-en-dist-200M.
+# Without this server, Gemini translates alone — the OCR Review modal records
+# which engine produced each channel (ocr_extracted_data.pipeline).
 
 # 6. Dev
 npm run dev      # http://localhost:5173 (Vite ready ~500ms)
@@ -92,7 +100,7 @@ public JS bundle at build time, so Vercel refuses to store a `VITE_`-prefixed na
 |-----|----------|----------|---------|--------------|
 | `VITE_SUPABASE_URL` | Public (bundle) | **Yes** | Supabase project | Supabase Settings → API |
 | `VITE_SUPABASE_ANON_KEY` | Public (bundle) | **Yes** | Supabase anon key — RLS is the security boundary | Supabase Settings → API |
-| `VITE_INDICTRAN_API_URL` | Public (bundle) | For translation | IndicTrans2 server | `http://localhost:8080` (local) or remote URL |
+| `VITE_INDICTRAN_API_URL` | Public (bundle) | For translation | IndicTrans2 server (Indic → English, `tgt_lang="en"`) | `http://localhost:8080` (local) or remote URL |
 | `GEMINI_API_KEY` | **Server-only** — Vercel **Secret** | For live OCR | Gemini key, read per-request by `api/gemini.ts` | https://aistudio.google.com/apikey |
 | `GEMINI_MODEL` | **Server-only** — Vercel **Secret** (optional) | — | Model id; defaults to `gemini-3.1-flash-lite` in `api/gemini.ts` | — |
 

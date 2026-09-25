@@ -14,6 +14,9 @@ interface MapControlsProps {
   corridorMode: boolean;
   onToggleCorridor: () => void;
   corridorCount: number | null;
+  corridorWidth: number;
+  onCorridorWidthChange: (w: number) => void;
+  onClearCorridor: () => void;
 }
 
 export default function MapControls({
@@ -29,6 +32,9 @@ export default function MapControls({
   corridorMode,
   onToggleCorridor,
   corridorCount,
+  corridorWidth,
+  onCorridorWidthChange,
+  onClearCorridor,
 }: MapControlsProps) {
 
   return (
@@ -58,17 +64,46 @@ export default function MapControls({
             </option>
           ))}
         </select>
-        <div className="flex gap-1">
+        <div className="flex gap-1 items-center">
           <button
             onClick={onToggleCorridor}
             className={`h-9 px-3 rounded-lg shadow-sm text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors ${
               corridorMode ? 'bg-red-600 text-white border-red-600' : 'bg-[#0c0c0c] border border-slate-200 text-slate-700 hover:bg-white/[0.04]'
             }`}
             aria-label="Toggle corridor alignment drawing"
-            title="Draw a project corridor: click points on the map, double-click to match parcels"
+            title="Draw a project corridor: click points on the map, double-click to match parcels. Backspace: undo point. Esc: cancel."
           >
-            <Route size={14} /> {corridorMode ? 'Drawing… (dbl-click to finish)' : corridorCount != null ? `Corridor: ${corridorCount} hit${corridorCount === 1 ? '' : 's'}` : 'Corridor'}
+            <Route size={14} /> {corridorMode ? 'Drawing… (dbl-click to run)' : corridorCount != null ? `Corridor: ${corridorCount} hit${corridorCount === 1 ? '' : 's'}` : 'Corridor'}
           </button>
+          {(corridorMode || corridorCount != null) && (
+            <label
+              className="h-9 px-2 rounded-lg bg-[#0c0c0c] border border-slate-200 shadow-sm flex items-center gap-1 text-xs text-slate-600 pointer-events-auto"
+              title="Buffer distance in metres from the alignment line (0 = stroke only)"
+            >
+              <span>±</span>
+              <input
+                type="number"
+                min={0}
+                max={2000}
+                step={5}
+                value={corridorWidth}
+                onChange={(e) => onCorridorWidthChange(Math.max(0, Number(e.target.value) || 0))}
+                className="w-12 bg-transparent text-xs text-slate-200 outline-none text-right font-mono"
+                aria-label="Corridor buffer width in metres"
+              />
+              <span className="text-slate-400">m</span>
+            </label>
+          )}
+          {corridorCount != null && (
+            <button
+              onClick={onClearCorridor}
+              className="h-9 px-2 rounded-lg bg-[#0c0c0c] border border-slate-200 shadow-sm text-xs text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] cursor-pointer"
+              title="Clear corridor line and results"
+              aria-label="Clear corridor"
+            >
+              Clear
+            </button>
+          )}
           <button onClick={onZoomIn} aria-label="Zoom in" className="w-9 h-9 bg-[#0c0c0c] border border-slate-200 rounded-lg shadow-sm flex items-center justify-center hover:bg-white/[0.04] cursor-pointer">
             <ZoomIn size={16} />
           </button>

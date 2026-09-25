@@ -9,7 +9,7 @@
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; worker-src 'self' blob:; script-src 'self' 'unsafe-inline' https://*.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://server.arcgisonline.com https://*.basemaps.cartocdn.com https://tile.openstreetmap.org https://*.supabase.co; connect-src 'self' https://*.supabase.co https://server.arcgisonline.com https://*.basemaps.cartocdn.com http://localhost:8080; frame-ancestors 'none';"
+          "value": "default-src 'self'; worker-src 'self' blob:; script-src 'self' 'unsafe-inline' https://*.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://server.arcgisonline.com https://*.basemaps.cartocdn.com https://tile.openstreetmap.org https://*.supabase.co; connect-src 'self' https://*.supabase.co https://server.arcgisonline.com https://*.basemaps.cartocdn.com https://cdn.jsdelivr.net http://localhost:8080; frame-src 'self' https://*.supabase.co; frame-ancestors 'none';"
         },
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
       ]

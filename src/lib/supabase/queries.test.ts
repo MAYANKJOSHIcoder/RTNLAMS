@@ -41,6 +41,7 @@ vi.mock('./client', () => {
 });
 
 import { getParcelsByBbox, getParcelsNearby, getParcelsIntersectingCorridor } from './queries';
+import { supabase } from './client';
 
 describe('getParcelsByBbox', () => {
   it('returns parcels whose centroid falls inside the bbox', async () => {
@@ -64,15 +65,45 @@ describe('getParcelsNearby', () => {
 });
 
 describe('getParcelsIntersectingCorridor', () => {
-  it('throws when corridor RPC fails (no fake full-fetch fallback)', async () => {
-    await expect(
-      getParcelsIntersectingCorridor({
+  it('falls back to client-side geodesic filtering when RPC is missing from schema cache', async () => {
+    // Corridor passes right through parcel 'near' (77.1, 28.4)
+    const result = await getParcelsIntersectingCorridor(
+      {
         type: 'LineString',
         coordinates: [
           [77.0, 28.3],
           [77.2, 28.5],
         ],
-      } as never),
-    ).rejects.toThrow();
+      } as never,
+      30,
+    );
+    expect(result.map((p) => p.id)).toEqual(['near']);
+  });
+
+  it('passes width_meters to the RPC attempt', async () => {
+    await getParcelsIntersectingCorridor(
+      {
+        type: 'LineString',
+        coordinates: [
+          [77.0, 28.3],
+          [77.2, 28.5],
+        ],
+      } as never,
+      45,
+    );
+    const calls = vi.mocked(supabase.rpc).mock.calls;
+    const match = calls.find((c) => c[0] === 'parcels_intersecting_corridor' && (c[1] as Record<string, unknown>)?.width_meters === 45);
+    expect(match).toBeDefined();
+  });
+
+  it('rejects negative width before calling the DB', async () => {
+    const result = await getParcelsIntersectingCorridor(
+      {
+        type: 'LineString',
+        coordinates: [],
+      } as never,
+      -10,
+    );
+    expect(result).toEqual([]);
   });
 });

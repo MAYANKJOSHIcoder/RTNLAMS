@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "predev": "node scripts/sync-tesseract-assets.mjs",
     "build": "tsc -b && vite build",
+    "prebuild": "node scripts/sync-tesseract-assets.mjs",
     "lint": "oxlint",
     "test": "vitest run",
     "preview": "vite preview"

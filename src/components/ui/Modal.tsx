@@ -9,9 +9,15 @@ export interface ModalProps {
   children: ReactNode;
   actions?: ReactNode;
   className?: string;
+  /**
+   * Replaces the default `max-w-lg`. Passed as a *single* width class rather than
+   * a `max-w-*` in `className` because `cn()` is a plain join — two max-w
+   * utilities would fight and the winner would depend on stylesheet order.
+   */
+  widthClass?: string;
 }
 
-export function Modal({ open, onClose, title, children, actions, className }: ModalProps) {
+export function Modal({ open, onClose, title, children, actions, className, widthClass = 'max-w-lg' }: ModalProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,7 +40,7 @@ export function Modal({ open, onClose, title, children, actions, className }: Mo
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div
         ref={ref}
-        className={cn('relative bg-[#0c0c0c] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col', className)}
+        className={cn('relative bg-[#0c0c0c] rounded-xl shadow-xl w-full max-h-[90vh] flex flex-col', widthClass, className)}
       >
         {title && (
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">

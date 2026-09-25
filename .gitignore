@@ -41,6 +41,10 @@ coverage
 .turbo
 .cache
 
+# Tesseract worker + WASM core — copied from node_modules by
+# scripts/sync-tesseract-assets.mjs on predev/prebuild (never committed)
+public/tesseract/
+
 # Vercel
 .vercel
 

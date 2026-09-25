@@ -8,6 +8,16 @@
 import { config, isIndicTransConfigured } from '../config';
 import { supabase } from '../supabase/client';
 import { tesseractLangsFor } from './ocr-langs';
+import {
+  buildPreprocessingContext,
+  detectScriptLang,
+  indicTransFailure,
+  planIndicTrans,
+  planTesseract,
+  tesseractFailure,
+  type PipelineReport,
+  type StepStatus,
+} from './pipeline';
 import type { Worker } from 'tesseract.js';
 
 // Re-exported so callers/tests can keep importing language helpers from the client.
@@ -23,6 +33,16 @@ export function consumePipelineWarnings(): string[] {
   const w = pipelineWarnings;
   pipelineWarnings = [];
   return w;
+}
+
+// Provenance of the most recent callGemini() run — consumed by useGemini and
+// stored in `documents.ocr_extracted_data.pipeline` so the OCR Review modal can
+// say which engine produced the text (Tesseract? IndicTrans2? Gemini alone?).
+let lastPipelineReport: PipelineReport | null = null;
+export function consumePipelineReport(): PipelineReport | null {
+  const r = lastPipelineReport;
+  lastPipelineReport = null;
+  return r;
 }
 
 const timestamps: number[] = [];
@@ -49,6 +69,14 @@ async function delay(ms: number) {
 const MAX_TESSERACT_WORKERS = 3;
 const tesseractWorkers = new Map<string, Promise<Worker>>();
 
+// tesseract.js defaults workerPath + corePath to cdn.jsdelivr.net, which the
+// production CSP blocks → the worker never starts and OCR fails silently in
+// exactly the way the MapLibre map used to (see ParcelMap.setWorkerUrl).
+// These two assets are self-hosted instead; only the traineddata still comes
+// from jsDelivr (allow-listed in vercel.json connect-src) because the 14
+// supported language models are far too large to ship.
+const TESSERACT_ASSET_BASE = `${import.meta.env.BASE_URL}tesseract`;
+
 function getTesseractWorker(langs: string[]): Promise<Worker> {
   const key = langs.join('+');
   const cached = tesseractWorkers.get(key);
@@ -60,7 +88,11 @@ function getTesseractWorker(langs: string[]): Promise<Worker> {
 
   const created = (async () => {
     const { createWorker } = await import('tesseract.js');
-    return createWorker(langs);
+    // oem stays undefined → OEM.LSTM_ONLY default, matching the copied cores
+    return createWorker(langs, undefined, {
+      workerPath: `${TESSERACT_ASSET_BASE}/worker.min.js`,
+      corePath: TESSERACT_ASSET_BASE,
+    });
   })().catch((e) => {
     tesseractWorkers.delete(key); // don't cache a failed init — allow retry
     throw e;
@@ -77,28 +109,48 @@ function getTesseractWorker(langs: string[]): Promise<Worker> {
   return created;
 }
 
-async function runTesseract(imageBase64: string, mimeType: string, appLang?: string | null): Promise<string> {
-  if (!imageBase64 || mimeType === 'application/pdf') return ''; // PDFs go straight to Gemini vision
+interface OcrOutcome {
+  text: string;
+  /** Non-null when Tesseract itself threw — recorded in the pipeline report. */
+  failure: string | null;
+}
+
+async function runTesseract(imageBase64: string, mimeType: string, appLang?: string | null): Promise<OcrOutcome> {
+  // PDFs have no raster path here — the caller's plan already knows this, the
+  // guard keeps the function safe when called directly.
+  if (!imageBase64 || mimeType === 'application/pdf') return { text: '', failure: null };
+  const langs = tesseractLangsFor(appLang);
   try {
-    const worker = await getTesseractWorker(tesseractLangsFor(appLang));
+    const worker = await getTesseractWorker(langs);
     const { data: { text } } = await worker.recognize(`data:${mimeType};base64,${imageBase64}`);
-    return text.trim();
+    return { text: text.trim(), failure: null };
   } catch (e) {
-    console.warn('[gemini] Tesseract failed, continuing without local OCR:', (e as Error).message);
-    pipelineWarnings.push(`Tesseract OCR failed (${tesseractLangsFor(appLang).join('+')}) — Gemini vision used alone`);
-    return '';
+    const message = (e as Error).message;
+    console.warn('[gemini] Tesseract failed, continuing without local OCR:', message);
+    const plan = tesseractFailure(langs, message);
+    if (plan.warning) pipelineWarnings.push(plan.warning);
+    return { text: '', failure: message };
   }
 }
 
-// Real IndicTrans2 server call (localhost:8080) with mock fallback
-async function runIndicTrans(rawText: string): Promise<{ detectedLanguage: string; translatedText: string }> {
-  if (!isIndicTransConfigured() || !rawText.trim()) {
-    // Mock fallback
-    const hasDevanagari = /[\u0900-\u097F]/.test(rawText);
-    return {
-      detectedLanguage: hasDevanagari ? 'hi' : 'en',
-      translatedText: hasDevanagari ? `Translated(IndicTrans): ${rawText.slice(0, 200)}` : rawText,
-    };
+interface IndicTransOutcome {
+  detectedLanguage: string;
+  translatedText: string;
+  status: StepStatus;
+  detail: string;
+}
+
+// Real IndicTrans2 server call (localhost:8080).
+// There is deliberately NO fabricated fallback: the old mock returned
+// `Translated(IndicTrans): <first 200 chars>`, which was pasted into the Gemini
+// prompt and could be persisted into documents.translated_text as if a real
+// translation had happened. An unavailable engine now reports as unavailable
+// and Gemini is told explicitly not to invent it.
+async function runIndicTrans(rawText: string): Promise<IndicTransOutcome> {
+  const plan = planIndicTrans(rawText, isIndicTransConfigured());
+  if (plan.status !== 'ran') {
+    if (plan.warning) pipelineWarnings.push(plan.warning);
+    return { detectedLanguage: detectScriptLang(rawText), translatedText: '', status: plan.status, detail: plan.detail };
   }
 
   try {
@@ -114,17 +166,17 @@ async function runIndicTrans(rawText: string): Promise<{ detectedLanguage: strin
     if (!res.ok) throw new Error(`IndicTrans ${res.status}`);
     const data = await res.json();
     return {
-      detectedLanguage: data.src_lang ?? 'en', // server auto-detects via script ranges
-      translatedText: data.translations?.[0] ?? rawText,
+      detectedLanguage: data.src_lang ?? detectScriptLang(rawText), // server detects via script ranges
+      translatedText: String(data.translations?.[0] ?? ''),
+      status: 'ran',
+      detail: `HTTP ${res.status}`,
     };
   } catch (e) {
-    console.warn('[gemini] IndicTrans server call failed, using mock:', (e as Error).message);
-    pipelineWarnings.push('IndicTrans server unreachable — translation skipped (start indictrans-server or check VITE_INDICTRAN_API_URL)');
-    const hasDevanagari = /[\u0900-\u097F]/.test(rawText);
-    return {
-      detectedLanguage: hasDevanagari ? 'hi' : 'en',
-      translatedText: hasDevanagari ? `Translated(IndicTrans): ${rawText.slice(0, 200)}` : rawText,
-    };
+    const message = (e as Error).message;
+    console.warn('[gemini] IndicTrans server call failed, continuing without translation:', message);
+    const fail = indicTransFailure(message);
+    if (fail.warning) pipelineWarnings.push(fail.warning);
+    return { detectedLanguage: detectScriptLang(rawText), translatedText: '', status: 'failed', detail: message };
   }
 }
 
@@ -140,23 +192,48 @@ interface GeminiOptions {
 export async function callGemini({ prompt, imageBase64, mimeType = 'image/jpeg', language, retries = MAX_RETRIES }: GeminiOptions): Promise<string> {
   checkRateLimit();
 
-  // Build hybrid context: Tesseract + IndicTrans preprocessing (both client-side, free)
+  // Plan the local preprocessing first: a PDF has no raster path, so saying so
+  // out loud (warning + provenance) is better than silently shipping a
+  // Gemini-only extraction that looks identical to a hybrid one.
+  const tesseractLangs = tesseractLangsFor(language);
+  const ocrPlan = planTesseract(imageBase64, mimeType);
+  if (ocrPlan.warning) pipelineWarnings.push(ocrPlan.warning);
+
   let tesseractText = '';
-  let indic: { detectedLanguage: string; translatedText: string } = { detectedLanguage: 'en', translatedText: '' };
-  if (imageBase64) {
-    tesseractText = await runTesseract(imageBase64, mimeType, language);
-    if (tesseractText) indic = await runIndicTrans(tesseractText);
+  let ocrStatus: StepStatus = ocrPlan.status;
+  let ocrDetail = ocrPlan.detail;
+  if (ocrPlan.status === 'ran') {
+    const ocr = await runTesseract(imageBase64 as string, mimeType, language);
+    tesseractText = ocr.text;
+    if (ocr.failure) {
+      ocrStatus = 'failed';
+      ocrDetail = ocr.failure;
+    }
   }
 
-  const combinedPrompt = `${prompt}
+  let indicTransText = '';
+  let detectedLanguage = detectScriptLang(tesseractText);
+  let indicStatus: StepStatus = 'skipped';
+  let indicDetail = 'no local OCR text to translate';
+  if (tesseractText) {
+    const indic = await runIndicTrans(tesseractText);
+    indicTransText = indic.translatedText;
+    detectedLanguage = indic.detectedLanguage;
+    indicStatus = indic.status;
+    indicDetail = indic.detail;
+  }
 
---- HYBRID PREPROCESSING CONTEXT (DO NOT RE-OCR, RECONCILE THESE) ---
-Document language hint: ${language ? String(language).trim().toLowerCase() : 'unspecified'} (Tesseract langs: ${tesseractLangsFor(language).join('+')})
-Tesseract OCR raw: ${tesseractText.slice(0, 4000)}
-IndicTrans detected_language: ${indic.detectedLanguage}
-IndicTrans translated_text: ${indic.translatedText.slice(0, 4000)}
---- END CONTEXT ---
-Reconcile both outputs, preserve original_text, include translated_text, detected language, and structured extracted_fields with confidence per field. Return ONLY valid JSON.`;
+  const combinedPrompt = `${prompt}\n\n${buildPreprocessingContext({
+    language,
+    tesseractLangs,
+    tesseract: ocrStatus,
+    tesseractDetail: ocrDetail,
+    tesseractText,
+    indicTrans: indicStatus,
+    indicTransDetail: indicDetail,
+    detectedLanguage,
+    translatedText: indicTransText,
+  })}`;
 
   const cleanB64 = imageBase64?.replace(/^data:[^;]+;base64,/, '');
   let lastErr: Error | null = null;
@@ -176,6 +253,15 @@ Reconcile both outputs, preserve original_text, include translated_text, detecte
       if (!res.ok || !json?.text) {
         throw new Error(json?.error ? `Gemini ${res.status}: ${json.error}` : `Gemini ${res.status}`);
       }
+      // Provenance for this run — picked up by useGemini and stored in JSONB.
+      lastPipelineReport = {
+        tesseract: ocrStatus,
+        tesseractDetail: ocrDetail,
+        tesseractLangs,
+        indicTrans: indicStatus,
+        indicTransDetail: indicDetail,
+        detectedLanguage,
+      };
       return json.text;
     } catch (e) {
       lastErr = e as Error;

@@ -99,6 +99,32 @@ function makeDots(features: { geometry?: unknown; properties?: Record<string, un
   };
 }
 
+// Synchronise both the drawn polyline and its vertex handles.
+function syncCorridorSources(map: maplibregl.Map, pts: [number, number][]) {
+  const lineSrc = map.getSource('corridor') as maplibregl.GeoJSONSource | undefined;
+  if (lineSrc) {
+    lineSrc.setData({
+      type: 'FeatureCollection',
+      features:
+        pts.length >= 2
+          ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: pts }, properties: {} }]
+          : [],
+    } as never);
+  }
+  const vertSrc = map.getSource('corridor-vertices') as maplibregl.GeoJSONSource | undefined;
+  if (vertSrc) {
+    vertSrc.setData({
+      type: 'FeatureCollection',
+      features: pts.map((coord, i) => ({
+        type: 'Feature',
+        id: i,
+        geometry: { type: 'Point', coordinates: coord },
+        properties: { index: i },
+      })),
+    } as never);
+  }
+}
+
 function makePointFeatures(parcels: Parcel[], filter: string, search: string) {
   return {
     type: 'FeatureCollection' as const,
@@ -146,8 +172,10 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
   const [search, setSearch] = useState('');
   const [satelliteEnabled, setSatelliteEnabled] = useState(true);
   const [corridorMode, setCorridorMode] = useState(false);
+  const [corridorWidth, setCorridorWidth] = useState<number>(30);
   const corridorPointsRef = useRef<[number, number][]>([]);
   const [corridorCount, setCorridorCount] = useState<number | null>(null);
+  const [corridorHits, setCorridorHits] = useState<Parcel[]>([]);
   const corridorModeRef = useRef(false);
   const finishCorridorRef = useRef<() => Promise<void>>(async () => {});
   corridorModeRef.current = corridorMode;
@@ -324,6 +352,18 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
       // Corridor alignment layers (empty until drawn)
       map.addSource('corridor', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } as never });
       map.addLayer({ id: 'corridor-line', type: 'line', source: 'corridor', paint: { 'line-color': '#DC2626', 'line-width': 3, 'line-dasharray': [2, 1] } });
+      map.addSource('corridor-vertices', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } as never });
+      map.addLayer({
+        id: 'corridor-vertices-layer',
+        type: 'circle',
+        source: 'corridor-vertices',
+        paint: {
+          'circle-color': '#DC2626',
+          'circle-radius': 5,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2,
+        },
+      });
       map.addSource('corridor-hits', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } as never });
       map.addLayer({ id: 'corridor-hits-fill', type: 'fill', source: 'corridor-hits', paint: { 'fill-color': '#DC2626', 'fill-opacity': 0.25 } });
       map.addLayer({ id: 'corridor-hits-line', type: 'line', source: 'corridor-hits', paint: { 'line-color': '#DC2626', 'line-width': 2 } });
@@ -383,13 +423,7 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
       map.on('click', (e: { lngLat: { lng: number; lat: number }; point: { x: number; y: number } }) => {
         if (corridorModeRef.current) {
           corridorPointsRef.current.push([e.lngLat.lng, e.lngLat.lat]);
-          const fc = {
-            type: 'FeatureCollection',
-            features: corridorPointsRef.current.length >= 2
-              ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: corridorPointsRef.current }, properties: {} }]
-              : [],
-          };
-          (map.getSource('corridor') as maplibregl.GeoJSONSource)?.setData(fc as never);
+          syncCorridorSources(map, corridorPointsRef.current);
           return;
         }
         if (!map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ['parcels-fill', 'parcels-dots', 'parcel-points'] }).length) {
@@ -401,6 +435,16 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
         if (!corridorModeRef.current) return;
         e.originalEvent.preventDefault();
         void finishCorridorRef.current();
+      });
+
+      // Right click: undo the last point when drawing
+      map.on('contextmenu', (e: { originalEvent: Event }) => {
+        if (!corridorModeRef.current) return;
+        e.originalEvent.preventDefault();
+        if (corridorPointsRef.current.length > 0) {
+          corridorPointsRef.current.pop();
+          syncCorridorSources(map, corridorPointsRef.current);
+        }
       });
 
       map.on('mousemove', 'parcels-fill', (e: { features?: { properties: Record<string, unknown> }[] }) => {
@@ -550,26 +594,59 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
 
   const handleToggleSatellite = () => setSatelliteEnabled((prev) => !prev);
 
-  // Corridor alignment: click to draw a line, double-click to run ST_Intersects via RPC
   const handleToggleCorridor = () => {
     const next = !corridorMode;
     setCorridorMode(next);
-    setCorridorCount(null);
-    corridorPointsRef.current = [];
     const map = mapRef.current;
     if (!map) return;
     map.getCanvas().style.cursor = next ? 'crosshair' : '';
-    if (!next && map.getSource('corridor')) (map.getSource('corridor') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: [] } as never);
-    if (!next && map.getSource('corridor-hits')) (map.getSource('corridor-hits') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: [] } as never);
+    // Leaving corridor mode preserves the line + results on screen so they can
+    // be inspected alongside parcel polygons; Clear (or Esc) discards them.
   };
+
+  const handleClearCorridor = () => {
+    corridorPointsRef.current = [];
+    setCorridorCount(null);
+    setCorridorHits([]);
+    const map = mapRef.current;
+    if (!map) return;
+    syncCorridorSources(map, []);
+    const hitsSrc = map.getSource('corridor-hits') as maplibregl.GeoJSONSource | undefined;
+    if (hitsSrc) hitsSrc.setData({ type: 'FeatureCollection', features: [] } as never);
+  };
+
+  // Keyboard ergonomics: Esc cancels drawing / Backspace undos point
+  useEffect(() => {
+    if (!corridorMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setCorridorMode(false);
+        corridorModeRef.current = false;
+        const map = mapRef.current;
+        if (map) map.getCanvas().style.cursor = '';
+        return;
+      }
+      if (e.key === 'Backspace' && corridorPointsRef.current.length > 0) {
+        e.preventDefault();
+        corridorPointsRef.current.pop();
+        if (mapRef.current) syncCorridorSources(mapRef.current, corridorPointsRef.current);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [corridorMode]);
 
   const finishCorridor = async () => {
     const map = mapRef.current;
     const pts = corridorPointsRef.current;
     if (!map || pts.length < 2) return;
     try {
-      const hits = await getParcelsIntersectingCorridor({ type: 'LineString', coordinates: pts } as never);
+      const hits = await getParcelsIntersectingCorridor(
+        { type: 'LineString', coordinates: pts } as never,
+        corridorWidth,
+      );
       setCorridorCount(hits.length);
+      setCorridorHits(hits);
       const fc = {
         type: 'FeatureCollection',
         features: hits.map((p) => ({
@@ -580,7 +657,8 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
       };
       const src = map.getSource('corridor-hits') as maplibregl.GeoJSONSource | undefined;
       if (src) src.setData(fc as never);
-      toast.success(`${hits.length} parcel(s) intersect the corridor`);
+      const distMsg = corridorWidth > 0 ? `within ${corridorWidth} m of` : 'intersecting';
+      toast.success(`${hits.length} parcel(s) ${distMsg} the corridor`);
     } catch (e) {
       toast.error(`Corridor query failed: ${(e as Error).message}`);
     }
@@ -590,13 +668,7 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.getSource('corridor')) return;
-    const fc = {
-      type: 'FeatureCollection',
-      features: corridorPointsRef.current.length >= 2
-        ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: corridorPointsRef.current }, properties: {} }]
-        : [],
-    };
-    (map.getSource('corridor') as maplibregl.GeoJSONSource).setData(fc as never);
+    syncCorridorSources(map, corridorPointsRef.current);
   }, [corridorMode, corridorCount]);
 
   return (
@@ -616,7 +688,55 @@ export default function ParcelMap({ projectId, onParcelSelect, selectedParcelId,
         corridorMode={corridorMode}
         onToggleCorridor={handleToggleCorridor}
         corridorCount={corridorCount}
+        corridorWidth={corridorWidth}
+        onCorridorWidthChange={setCorridorWidth}
+        onClearCorridor={handleClearCorridor}
       />
+
+      {/* Corridor drawing guidance chip */}
+      {corridorMode && (
+        <div className="absolute bottom-3 right-3 bg-[#0c0c0c]/90 border border-slate-700 text-[11px] text-slate-300 px-2.5 py-1 rounded-full shadow pointer-events-none">
+          Click map to add points · dbl-click to finish · Backspace undo · Esc cancel
+        </div>
+      )}
+
+      {/* Corridor hits panel */}
+      {corridorHits.length > 0 && (
+        <div className="absolute bottom-3 left-3 w-64 max-h-56 overflow-hidden rounded-lg border border-slate-200 bg-[#0c0c0c]/95 shadow-lg pointer-events-auto flex flex-col">
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-800 bg-white/[0.03]">
+            <span className="text-xs font-semibold text-slate-200">
+              {corridorHits.length} hit{corridorHits.length === 1 ? '' : 's'} (±{corridorWidth}m)
+            </span>
+            <button
+              onClick={handleClearCorridor}
+              className="text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+          <ul className="overflow-y-auto divide-y divide-slate-800/60 text-xs">
+            {corridorHits.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const map = mapRef.current;
+                    if (map) focusParcel(map, p.parcel_number, p.geometry);
+                    if (onParcelSelect) onParcelSelect(p);
+                  }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-white/[0.06] transition-colors cursor-pointer flex items-center justify-between gap-2"
+                >
+                  <span className="font-mono text-slate-200 truncate">{p.parcel_number}</span>
+                  <span className="text-[11px] text-slate-400 shrink-0">
+                    {p.area_hectares != null ? `${p.area_hectares} ha` : p.status}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {!filtered.features.length && !pointData.features.length && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/60 pointer-events-none">
           <span className="text-sm text-slate-200 bg-[#0c0c0c] border border-slate-700 rounded-full px-3 py-1 shadow-sm">

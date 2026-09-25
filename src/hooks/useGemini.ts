@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { callGemini, extractFromFile, consumePipelineWarnings } from '../lib/gemini/client';
+import { callGemini, extractFromFile, consumePipelineWarnings, consumePipelineReport } from '../lib/gemini/client';
 import { PROMPT_MAP, type PromptType } from '../lib/gemini/prompts';
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
 import type { GeminiExtractionResponse } from '../lib/types';
@@ -45,10 +45,14 @@ export function useGeminiExtraction() {
 
       // Persist to documents table if documentId given and Supabase configured
       if (documentId && isSupabaseConfigured()) {
+        // Which engine actually produced this text (Tesseract/IndicTrans/Gemini)
+        // is stored alongside the fields so the review modal can be honest about
+        // e.g. a PDF that never had a local OCR pass.
+        const pipeline = consumePipelineReport();
         const { data: updated, error } = await supabase
           .from('documents')
           .update({
-            ocr_extracted_data: parsed as unknown as Record<string, unknown>,
+            ocr_extracted_data: { ...(parsed as unknown as Record<string, unknown>), pipeline } as unknown as Record<string, unknown>,
             ocr_raw_text: parsed.original_text ?? raw,
             translated_text: parsed.translated_text,
             ocr_confidence: parsed.confidence,

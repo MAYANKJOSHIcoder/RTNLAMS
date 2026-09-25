@@ -60,12 +60,18 @@ SET search_path = public, extensions, postgis AS $$
   );
 $$;
 
-CREATE OR REPLACE FUNCTION public.parcels_intersecting_corridor(corridor JSONB)
+-- Drop the 1-arg overload if present from 001/prior runs
+DROP FUNCTION IF EXISTS public.parcels_intersecting_corridor(jsonb);
+DROP FUNCTION IF EXISTS public.parcels_intersecting_corridor(text);
+
+CREATE OR REPLACE FUNCTION public.parcels_intersecting_corridor(
+  corridor JSONB, width_meters FLOAT
+)
 RETURNS SETOF public.parcels
 LANGUAGE sql STABLE
 SET search_path = public, extensions, postgis AS $$
   SELECT p.* FROM public.parcels p
-  WHERE ST_Intersects(
+  WHERE ST_DWithin(
     COALESCE(
       p.geometry::geometry,
       CASE
@@ -73,8 +79,9 @@ SET search_path = public, extensions, postgis AS $$
         THEN ST_SetSRID(ST_MakePoint(p.longitude, p.latitude), 4326)
         ELSE NULL
       END
-    ),
-    ST_SetSRID(ST_GeomFromGeoJSON(corridor::text), 4326)
+    )::geography,
+    ST_SetSRID(ST_GeomFromGeoJSON(corridor::text), 4326)::geography,
+    GREATEST(width_meters, 0)
   );
 $$;
 

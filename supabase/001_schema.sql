@@ -638,6 +638,8 @@ $$;
 -- Drop the short-lived p_* overloads from earlier 001 revisions if present:
 DROP FUNCTION IF EXISTS public.parcels_nearby(float, float, integer);
 DROP FUNCTION IF EXISTS public.parcels_intersecting_corridor(text);
+-- 1-arg corridor overload, superseded by the width-aware signature below
+DROP FUNCTION IF EXISTS public.parcels_intersecting_corridor(jsonb);
 
 CREATE OR REPLACE FUNCTION public.parcels_within_bbox(
   min_lng FLOAT, min_lat FLOAT, max_lng FLOAT, max_lat FLOAT
@@ -680,12 +682,18 @@ SECURITY DEFINER SET search_path = public, extensions, postgis AS $$
   );
 $$;
 
-CREATE OR REPLACE FUNCTION public.parcels_intersecting_corridor(corridor JSONB)
+-- Corridor matching is width-aware: a highway/rail corridor is a strip of land,
+-- so parcels within `width_meters` of the drawn alignment match, not only the
+-- ones a zero-width stroke literally crosses. width_meters = 0 reproduces the
+-- old ST_Intersects behaviour.
+CREATE OR REPLACE FUNCTION public.parcels_intersecting_corridor(
+  corridor JSONB, width_meters FLOAT
+)
 RETURNS SETOF public.parcels
 LANGUAGE sql STABLE
 SECURITY DEFINER SET search_path = public, extensions, postgis AS $$
   SELECT p.* FROM public.parcels p
-  WHERE ST_Intersects(
+  WHERE ST_DWithin(
     COALESCE(
       p.geometry::geometry,
       CASE
@@ -693,8 +701,9 @@ SECURITY DEFINER SET search_path = public, extensions, postgis AS $$
         THEN ST_SetSRID(ST_MakePoint(p.longitude, p.latitude), 4326)
         ELSE NULL
       END
-    ),
-    ST_SetSRID(ST_GeomFromGeoJSON(corridor::text), 4326)
+    )::geography,
+    ST_SetSRID(ST_GeomFromGeoJSON(corridor::text), 4326)::geography,
+    GREATEST(width_meters, 0)
   );
 $$;
 

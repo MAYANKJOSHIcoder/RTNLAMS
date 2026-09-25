@@ -59,7 +59,7 @@ export default function Register() {
             <ShieldCheck className="text-white" size={24} />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Create your account</h1>
-          <p className="text-sm text-slate-500 mt-1"><Link to="/" className="cursor-pointer hover:text-white transition-colors">RTNLAMS</Link> • Government of India</p>
+          <p className="text-sm text-slate-500 mt-1"><Link to="/" className="cursor-pointer hover:text-white transition-colors">NLAMS</Link> • Government of India</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="bg-[#0c0c0c] border border-slate-200 rounded-xl p-6 shadow-sm space-y-4" noValidate>

@@ -63,7 +63,7 @@ export default function Header({ onMenuToggle }: { onMenuToggle?: () => void }) 
             </button>
           )}
           <Link to="/" className="font-semibold tracking-tight text-sm md:text-base truncate">
-            RTNLAMS
+            NLAMS
           </Link>
           {current && (
             <>

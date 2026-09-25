@@ -160,7 +160,7 @@ function Hero({ user, role }: { user: boolean; role?: string }) {
         <div className="flex items-stretch justify-between gap-4">
           <div className="flex items-center rounded-2xl border border-white/10 bg-black/75 px-4 text-xs text-white/60 shadow-2xl backdrop-blur-xl">
             <div className="flex items-center gap-2 font-mono tracking-[.16em]">
-              <span className="live-dot" /> Real Time National Land Acquisition And Management System
+              <span className="live-dot" /> National Land Acquisition And Management System
             </div>
           </div>
           <div className="hidden items-stretch gap-1 rounded-2xl border border-white/10 bg-black/75 p-1 text-sm text-white/55 shadow-2xl backdrop-blur-xl sm:flex">
@@ -278,7 +278,7 @@ export default function Landing() {
       {/* Nav */}
       <header className="h-14 sticky top-0 z-40 bg-black/80 backdrop-blur border-b border-white/10 flex items-center justify-between px-6">
         <Link to="/" className="font-semibold tracking-tight">
-          RTNLAMS
+          NLAMS
         </Link>
         <nav className="hidden md:flex items-center gap-6 text-sm text-[#8f8f8f]">
           {NAV.map((n) => (
@@ -427,7 +427,7 @@ export default function Landing() {
           </div>
           <div className="bg-black p-8">
             <div className="font-display text-4xl font-bold tabnum">₹15,000 Cr</div>
-            <div className="mt-2 text-[#8f8f8f]">Compensation disbursed annually that RTNLAMS can reconcile</div>
+            <div className="mt-2 text-[#8f8f8f]">Compensation disbursed annually that NLAMS can reconcile</div>
           </div>
         </div>
       </section>
@@ -493,7 +493,7 @@ export default function Landing() {
       <footer className="bg-black">
         <div className="max-w-6xl mx-auto px-6 py-12 grid md:grid-cols-3 gap-8 text-sm">
           <div>
-            <div className="font-semibold tracking-tight">RTNLAMS</div>
+            <div className="font-semibold tracking-tight">NLAMS</div>
             <p className="mt-2 text-[#8f8f8f]">Real-Time National Land Acquisition Management System. A Government of India initiative built by Team GodijiCodes.</p>
           </div>
           <div>
@@ -512,12 +512,12 @@ export default function Landing() {
               <li className="flex items-center gap-2"><Mail size={14} /> {CONTACT.email}</li>
               <li className="flex items-center gap-2"><Phone size={14} /> {CONTACT.phone}</li>
               <li className="flex items-center gap-2"><Users size={14} /> Team GodijiCodes</li>
-              <li className="flex items-center gap-2"><Clock size={14} /> © 2026 RTNLAMS</li>
+              <li className="flex items-center gap-2"><Clock size={14} /> © 2026 NLAMS</li>
             </ul>
           </div>
         </div>
         <div className="border-t border-white/10 py-4 text-center text-xs text-[#8f8f8f]">
-          RTNLAMS — Real-Time Control Tower for Land Acquisition • Built by Team GodijiCodes
+          NLAMS — Real-Time Control Tower for Land Acquisition • Built by Team GodijiCodes
         </div>
       </footer>
     </div>

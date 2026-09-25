@@ -83,15 +83,18 @@ npm run preview  # preview production build
 
 ## Environment Variables
 
-All via `import.meta.env.VITE_*` (validated independently in `src/lib/config.ts`):
+Client values use `import.meta.env.VITE_*` (validated independently in `src/lib/config.ts`).
+**Server-only secrets carry no `VITE_` prefix** — Vite inlines every `VITE_*` value into the
+public JS bundle at build time, so Vercel refuses to store a `VITE_`-prefixed name as a Secret
+("Remove the public framework prefix…"). See `.env.example` for the split.
 
-| Key | Required | Purpose | Where to Get |
-|-----|----------|---------|--------------|
-| `VITE_SUPABASE_URL` | **Yes** | Supabase project | Supabase Settings → API |
-| `VITE_SUPABASE_ANON_KEY` | **Yes** | Supabase anon key | Supabase Settings → API |
-| `VITE_GEMINI_API_KEY` | For live OCR | Google Gemini | https://aistudio.google.com/apikey |
-| `VITE_PLANET_API_KEY` | (unused — satellite now uses free Esri tiles) | — | — |
-| `VITE_INDICTRAN_API_URL` | For translation | IndicTrans2 server | `http://localhost:8080` (local) or remote URL |
+| Key | Exposure | Required | Purpose | Where to Get |
+|-----|----------|----------|---------|--------------|
+| `VITE_SUPABASE_URL` | Public (bundle) | **Yes** | Supabase project | Supabase Settings → API |
+| `VITE_SUPABASE_ANON_KEY` | Public (bundle) | **Yes** | Supabase anon key — RLS is the security boundary | Supabase Settings → API |
+| `VITE_INDICTRAN_API_URL` | Public (bundle) | For translation | IndicTrans2 server | `http://localhost:8080` (local) or remote URL |
+| `GEMINI_API_KEY` | **Server-only** — Vercel **Secret** | For live OCR | Gemini key, read per-request by `api/gemini.ts` | https://aistudio.google.com/apikey |
+| `GEMINI_MODEL` | **Server-only** — Vercel **Secret** (optional) | — | Model id; defaults to `gemini-3.1-flash-lite` in `api/gemini.ts` | — |
 
 **Missing keys → app runs in mock mode** (Delhi mock parcels, mock Gemini JSON, no satellite tiles).  
 Config validators are independent — one missing key doesn't break others.

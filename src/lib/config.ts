@@ -10,6 +10,7 @@ export interface AppConfig {
   supabaseAnonKey: string;
   cartoApiKey: string;
   indicTransApiUrl: string;
+  pdfOcrMaxPages: number;
 }
 
 const env = (): Record<string, string | undefined> =>
@@ -56,11 +57,13 @@ export function isConfigValid(): boolean {
  */
 export const config: AppConfig = (() => {
   const e = env();
+  const maxPagesParsed = parseInt(e.VITE_PDF_OCR_MAX_PAGES ?? '', 10);
   return {
     supabaseUrl: e.VITE_SUPABASE_URL ?? '',
     supabaseAnonKey: e.VITE_SUPABASE_ANON_KEY ?? '',
     cartoApiKey: getVal('VITE_CARTO_API_KEY'),
     indicTransApiUrl: e.VITE_INDICTRAN_API_URL ?? '',
+    pdfOcrMaxPages: Number.isFinite(maxPagesParsed) ? maxPagesParsed : 5,
   };
 })();
 

@@ -38,11 +38,14 @@ export interface StepPlan {
 export const PDF_NO_LOCAL_OCR =
   'PDF input: Tesseract + IndicTrans2 skipped (no local text extraction) — Gemini vision produced these fields alone';
 
-/** Tesseract only runs for raster images — PDFs go straight to Gemini vision. */
+/**
+ * Tesseract runs for both raster images and PDFs (via in-browser canvas rasterization).
+ * Skips only when no file payload is provided.
+ */
 export function planTesseract(imageBase64?: string | null, mimeType?: string | null): StepPlan {
   if (!imageBase64) return { status: 'skipped', detail: 'no image payload' };
   if (mimeType === 'application/pdf') {
-    return { status: 'skipped', detail: 'PDF input — local OCR not available', warning: PDF_NO_LOCAL_OCR };
+    return { status: 'ran', detail: 'PDF rasterization' };
   }
   return { status: 'ran', detail: '' };
 }
@@ -148,9 +151,12 @@ export function buildPreprocessingContext(input: PreprocessingInput): string {
 
 /** One-line provenance for the UI ("who produced this?"). */
 export function describePipeline(report: PipelineReport): { ocr: string; translation: string; extraction: string } {
+  const langTag = report.tesseractLangs.join('+') || 'eng';
   const ocr =
     report.tesseract === 'ran'
-      ? `Tesseract (${report.tesseractLangs.join('+') || 'eng'})`
+      ? report.tesseractDetail
+        ? `Tesseract (${langTag}, ${report.tesseractDetail})`
+        : `Tesseract (${langTag})`
       : report.tesseract === 'failed'
         ? 'Tesseract failed'
         : report.tesseractDetail || 'Tesseract not run';

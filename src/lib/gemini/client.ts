@@ -9,6 +9,12 @@ import { config, isIndicTransConfigured } from '../config';
 import { supabase } from '../supabase/client';
 import { tesseractLangsFor } from './ocr-langs';
 import {
+  decodeBase64ToBytes,
+  joinPdfPageText,
+  pdfOcrDetail,
+  pdfOcrWarning,
+} from './pdf-ocr';
+import {
   buildPreprocessingContext,
   detectScriptLang,
   indicTransFailure,
@@ -113,14 +119,44 @@ interface OcrOutcome {
   text: string;
   /** Non-null when Tesseract itself threw — recorded in the pipeline report. */
   failure: string | null;
+  /** Specific detail for multi-page PDF processing or specialized engines */
+  detail?: string;
 }
 
 async function runTesseract(imageBase64: string, mimeType: string, appLang?: string | null): Promise<OcrOutcome> {
-  // PDFs have no raster path here — the caller's plan already knows this, the
-  // guard keeps the function safe when called directly.
-  if (!imageBase64 || mimeType === 'application/pdf') return { text: '', failure: null };
+  if (!imageBase64) return { text: '', failure: null };
   const langs = tesseractLangsFor(appLang);
   try {
+    if (mimeType === 'application/pdf') {
+      const { rasterizePdf } = await import('./pdf-raster');
+      const pdfBytes = decodeBase64ToBytes(imageBase64);
+      const { pages, totalPages, pagesRead } = await rasterizePdf(pdfBytes, {
+        maxPages: config.pdfOcrMaxPages,
+      });
+
+      if (pages.length === 0) {
+        return { text: '', failure: 'PDF contains no renderable pages' };
+      }
+
+      const warning = pdfOcrWarning(pagesRead, totalPages);
+      if (warning) pipelineWarnings.push(warning);
+
+      const worker = await getTesseractWorker(langs);
+      const recognizedPages: { page: number; text: string }[] = [];
+
+      for (const p of pages) {
+        const { data: { text } } = await worker.recognize(p.canvas);
+        recognizedPages.push({ page: p.page, text: text.trim() });
+        // Release canvas memory immediately
+        p.canvas.width = 0;
+        p.canvas.height = 0;
+      }
+
+      const joinedText = joinPdfPageText(recognizedPages);
+      const detail = pdfOcrDetail(pagesRead, totalPages);
+      return { text: joinedText, failure: null, detail };
+    }
+
     const worker = await getTesseractWorker(langs);
     const { data: { text } } = await worker.recognize(`data:${mimeType};base64,${imageBase64}`);
     return { text: text.trim(), failure: null };
@@ -205,6 +241,9 @@ export async function callGemini({ prompt, imageBase64, mimeType = 'image/jpeg',
   if (ocrPlan.status === 'ran') {
     const ocr = await runTesseract(imageBase64 as string, mimeType, language);
     tesseractText = ocr.text;
+    if (ocr.detail) {
+      ocrDetail = ocr.detail;
+    }
     if (ocr.failure) {
       ocrStatus = 'failed';
       ocrDetail = ocr.failure;

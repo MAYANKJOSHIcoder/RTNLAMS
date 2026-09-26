@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import {
-  PDF_NO_LOCAL_OCR,
   buildPreprocessingContext,
   describePipeline,
   detectScriptLang,
@@ -31,10 +30,10 @@ describe('planTesseract', () => {
     expect(planTesseract('AAAA', 'image/jpeg')).toEqual({ status: 'ran', detail: '' });
   });
 
-  it('skips PDFs and says so out loud', () => {
+  it('runs for PDFs via rasterization', () => {
     const plan = planTesseract('AAAA', 'application/pdf');
-    expect(plan.status).toBe('skipped');
-    expect(plan.warning).toBe(PDF_NO_LOCAL_OCR);
+    expect(plan.status).toBe('ran');
+    expect(plan.detail).toBe('PDF rasterization');
   });
 
   it('skips when there is no image payload at all', () => {

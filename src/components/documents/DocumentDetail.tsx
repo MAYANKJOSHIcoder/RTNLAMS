@@ -362,9 +362,9 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
                 <span>Pipeline: not recorded (extracted before provenance tracking — re-extract to record it)</span>
               )}
             </div>
-            {pipeline?.tesseract === 'skipped' && pipeline.indicTrans !== 'ran' && (
+            {pipeline && (pipeline.tesseract === 'failed' || (pipeline.tesseract === 'skipped' && pipeline.indicTrans !== 'ran')) && (
               <p className="mt-2 text-[11px] text-amber-600">
-                PDF input — local OCR/translation skipped: these values come from Gemini vision alone.
+                Local OCR did not run ({pipeline.tesseractDetail || pipeline.tesseract}) — values come from Gemini vision alone.
               </p>
             )}
           </div>

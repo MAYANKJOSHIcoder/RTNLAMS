@@ -12,7 +12,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import satelliteImage from '../assets/satellite.webp';
 
 const CONTACT = {
-  email: 'hello@godijicodes.in',
+  email: 'hello@hercules29.in',
   phone: '+91 98XXX XXXXX',
 };
 
@@ -494,7 +494,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-6 py-12 grid md:grid-cols-3 gap-8 text-sm">
           <div>
             <div className="font-semibold tracking-tight">NLAMS</div>
-            <p className="mt-2 text-[#8f8f8f]">Real-Time National Land Acquisition Management System. A Government of India initiative built by Team GodijiCodes.</p>
+            <p className="mt-2 text-[#8f8f8f]">Real-Time National Land Acquisition Management System. A Government of India initiative built by Team Hercules29 • SIH 2026.</p>
           </div>
           <div>
             <div className="font-medium mb-3">Navigate</div>
@@ -511,13 +511,13 @@ export default function Landing() {
             <ul className="space-y-2 text-[#8f8f8f]">
               <li className="flex items-center gap-2"><Mail size={14} /> {CONTACT.email}</li>
               <li className="flex items-center gap-2"><Phone size={14} /> {CONTACT.phone}</li>
-              <li className="flex items-center gap-2"><Users size={14} /> Team GodijiCodes</li>
+              <li className="flex items-center gap-2"><Users size={14} /> Team Hercules29 • SIH 2026</li>
               <li className="flex items-center gap-2"><Clock size={14} /> © 2026 NLAMS</li>
             </ul>
           </div>
         </div>
         <div className="border-t border-white/10 py-4 text-center text-xs text-[#8f8f8f]">
-          NLAMS — Real-Time Control Tower for Land Acquisition • Built by Team GodijiCodes
+          NLAMS — Real-Time Control Tower for Land Acquisition • Built by Team Hercules29 • SIH 2026
         </div>
       </footer>
     </div>

@@ -1,6 +1,6 @@
 # Real-Time National Land Acquisition & Management System (RTNLAMS)
 
-**Team:** GodijiCodes • IGDTUW  
+**Team:** Hercules29 • SIH 2026  
 **Spec:** 25-Prompt Vibe Coding Build (`PROMPTS_indictrans.md`) — MVP Control Tower for national infrastructure land acquisition
 
 An integrated digital control tower uniting **GIS parcel mapping**, **automated statutory workflows**, and **Indic document intelligence** — document → parcel → decision.
@@ -146,7 +146,7 @@ Seed: 3 projects, 30 parcels (Delhi/Mumbai), 60 docs, 60 stages, 10 hearings, 15
 - **Hearings & Audit:** `HearingForm`/`Calendar` (objection/valuation/final/public, attendees JSONB) + `AuditForm`/`AuditLog` (satellite/field/compliance, severity, **real Storage upload** for evidence/minutes).
 - **Dashboard Control Tower:** 5 KPIs (Projects/In-Progress/Breaches/High-Risk/Paid), Map 60% + Pipeline 40% (BarChart), Activity + RiskAlerts, 30s auto-refresh.
 - **Parcels Hub:** Search (debounce 300ms) + status/risk/project filters, sortable paginated Table (8/pg), Map+highlight, 6 tabs (Overview/Documents/Timeline/Hearings/Compensation/Audit), Add Modal + CSV bulk upload.
-- **Auth & Layout:** `AuthContext` session/login/logout/register + `user_profiles` role (admin/field_officer/auditor/citizen), `Protected → /login`, `Header` bell+role badge+dropdown, `Sidebar` collapsible+project selector, `Footer` IGDTUW.
+- **Auth & Layout:** `AuthContext` session/login/logout/register + `user_profiles` role (admin/field_officer/auditor/citizen), `Protected → /login`, `Header` bell+role badge+dropdown, `Sidebar` collapsible+project selector, `Footer` Hercules29 • SIH 2026.
 - **Resilience:** `ErrorBoundary` (friendly + Try Again), `LoadingScreen` + `TableSkeleton`, `try/catch→toast` on all Supabase/Gemini, `zod` pre-DB, `sanitizeString`, `RateLimiter`, `compressImage`, `useSessionTimeout` 30m, `useDebounce`, `staleTime 30s`.
 
 ---
@@ -202,4 +202,4 @@ Conventions: `import.meta.env.VITE_*` only, `zod` before DB, `sanitizeString` on
 
 ## License
 
-Academic MVP for IGDTUW — not a production government system. MIT where applicable.
+Built by Team Hercules29 for SIH 2026 — not a production government system. MIT where applicable.

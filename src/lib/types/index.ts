@@ -1,4 +1,4 @@
-// IGDTUW Land Acquisition System — Central Type Definitions
+// Hercules29 RTNLAMS (SIH 2026) — Central Type Definitions
 // PROMPT 4 — src/lib/types/index.ts
 // Covers all 13 interfaces + PostGIS GeoJSON + JSONB + status unions
 

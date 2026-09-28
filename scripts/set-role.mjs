@@ -38,6 +38,34 @@ async function main() {
     console.error('Missing SUPABASE_URL / SERVICE_ROLE_KEY — copy scripts/.env.example to scripts/.env and fill it (Dashboard → API Keys → service_role).');
     process.exit(1);
   }
+
+  // Guard against the silent failure this script used to have: a service_role
+  // key from project A with SUPABASE_URL of project B "succeeds" against the
+  // wrong database (or 401s confusingly) instead of saying so. The key's own
+  // JWT carries its project ref, so compare it to the URL host.
+  const keyRef = (() => {
+    try {
+      const payload = JSON.parse(Buffer.from(SERVICE_ROLE_KEY.split('.')[1], 'base64url').toString('utf8'));
+      return typeof payload?.ref === 'string' ? payload.ref : undefined;
+    } catch {
+      return undefined;
+    }
+  })();
+  const urlRef = (() => {
+    try {
+      return new URL(SUPABASE_URL).hostname.split('.')[0];
+    } catch {
+      return undefined;
+    }
+  })();
+  if (!keyRef || !urlRef || keyRef !== urlRef) {
+    console.error(
+      `scripts/.env mismatch: SERVICE_ROLE_KEY belongs to project "${keyRef ?? 'unknown'}" but SUPABASE_URL points at "${urlRef ?? 'unknown'}".\n` +
+        'Re-paste both values from the SAME project (Dashboard → Project Settings → API Keys).',
+    );
+    process.exit(1);
+  }
+
   const H = { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json' };
 
   // Find the auth user by email (admin API paginates; 1000 covers any demo project)

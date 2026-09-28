@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react';
+import { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { useDocuments } from '../hooks/useDocuments';
@@ -20,16 +20,35 @@ export default function Documents() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const [parcelId, setParcelId] = useState(routeId ?? '');
-  const [viewDoc, setViewDoc] = useState<DocType | null>(null);
+  // Click-time snapshot of the row under review. Fallback only — the live
+  // react-query row wins below (see `viewDoc`).
+  const [viewDocSnapshot, setViewDocSnapshot] = useState<DocType | null>(null);
 
   // route /documents/:id preselects the parcel
   useEffect(() => {
     if (routeId) setParcelId(routeId);
   }, [routeId]);
 
-  const { refetch, isError, error } = useDocuments(parcelId || undefined);
+  const { data: scopedDocs = [], refetch, isError, error } = useDocuments(parcelId || undefined);
   const allDocsQuery = useDocuments(undefined);
-  const allDocs = allDocsQuery.data ?? [];
+  // Memoised so the identity is stable across renders — an inline `?? []` would
+  // make the viewDoc memo below re-run (and re-render the modal) every render.
+  const allDocs = useMemo(() => allDocsQuery.data ?? [], [allDocsQuery.data]);
+
+  // The OCR Review modal used to render the click-time object forever: extraction
+  // updates the row and useGemini invalidates ['documents'], but nothing wrote the
+  // refetched row back into the modal's state — so a fully successful
+  // Tesseract → IndicTrans2 → Gemini run still showed "Extracted Fields (0)",
+  // "Pipeline: not recorded" and the old `uploaded` badge until the modal was
+  // closed and reopened. Prefer the live cache row so the modal updates itself;
+  // fall back to the snapshot so it never blanks out mid-refetch.
+  const viewDoc = useMemo(() => {
+    if (!viewDocSnapshot) return null;
+    const live =
+      scopedDocs.find((d) => d.id === viewDocSnapshot.id) ??
+      allDocs.find((d) => d.id === viewDocSnapshot.id);
+    return live ?? viewDocSnapshot;
+  }, [viewDocSnapshot, scopedDocs, allDocs]);
 
   // group "all" docs by parcel
   const byParcel: { parcel: string; docs: DocType[] }[] = (() => {
@@ -66,7 +85,7 @@ export default function Documents() {
           {can(profile?.role, 'document.upload') && (
             <DocumentUpload parcelId={parcelId} onUploaded={() => refetch()} />
           )}
-          <DocumentList parcelId={parcelId} onView={(d) => setViewDoc(d)} />
+          <DocumentList parcelId={parcelId} onView={(d) => setViewDocSnapshot(d)} />
         </>
       ) : (
         <div className="space-y-3">
@@ -83,7 +102,7 @@ export default function Documents() {
                 </div>
                 <div className="divide-y divide-slate-100">
                   {docs.map((d) => (
-                    <DocRow key={d.id} doc={d} onView={() => setViewDoc(d)} />
+                    <DocRow key={d.id} doc={d} onView={() => setViewDocSnapshot(d)} />
                   ))}
                 </div>
               </div>
@@ -94,7 +113,7 @@ export default function Documents() {
 
       {viewDoc && (
         <Suspense fallback={<div className="py-8 text-center text-sm text-slate-500">Loading document…</div>}>
-          <DocumentDetail document={viewDoc} onClose={() => setViewDoc(null)} />
+          <DocumentDetail document={viewDoc} onClose={() => setViewDocSnapshot(null)} />
         </Suspense>
       )}
     </div>

@@ -2,8 +2,14 @@ import { describe, it, expect } from 'vitest';
 import {
   buildPreprocessingContext,
   describePipeline,
+  describePipelineState,
   detectScriptLang,
   indicTransFailure,
+  indicTransInput,
+  indicTransTimeout,
+  indicTransTruncatedWarning,
+  PIPELINE_NONE_COPY,
+  PIPELINE_UNRECORDED_COPY,
   planIndicTrans,
   planTesseract,
   tesseractFailure,
@@ -59,6 +65,12 @@ describe('planIndicTrans', () => {
     expect(plan.status).toBe('mock');
     expect(plan.warning).toBeTruthy();
   });
+  it('skips when the source document is English (target is English)', () => {
+    const plan = planIndicTrans('some text', true, 'en');
+    expect(plan.status).toBe('skipped');
+    expect(plan.detail).toMatch(/source language is English/);
+  });
+
 });
 
 describe('failure plans', () => {
@@ -158,5 +170,115 @@ describe('describePipeline', () => {
     const out = describePipeline(report({ tesseract: 'skipped', tesseractDetail: 'PDF input — local OCR not available', indicTrans: 'skipped', indicTransDetail: 'no local OCR text to translate' }));
     expect(out.ocr).toContain('PDF input');
     expect(out.translation).toContain('skipped');
+  });
+});
+
+describe('describePipelineState', () => {
+  const report = (over: Partial<PipelineReport> = {}): PipelineReport => ({
+    tesseract: 'ran',
+    tesseractDetail: 'PDF (1 page)',
+    tesseractLangs: ['eng', 'hin'],
+    indicTrans: 'ran',
+    indicTransDetail: 'HTTP 200',
+    detectedLanguage: 'hi',
+    ...over,
+  });
+
+  it('reports "none" for a row that was never extracted', () => {
+    expect(describePipelineState(null)).toEqual({ kind: 'none' });
+    expect(describePipelineState(undefined)).toEqual({ kind: 'none' });
+    expect(describePipelineState({})).toEqual({ kind: 'none' });
+  });
+
+  it('reports "unrecorded" only when fields exist without a pipeline report', () => {
+    expect(describePipelineState({ extracted_fields: { land_area: '0.4 ha' } })).toEqual({
+      kind: 'unrecorded',
+      fields: 1,
+    });
+  });
+
+  it('reports "recorded" with the whole report', () => {
+    const state = describePipelineState({ extracted_fields: { land_area: 'x' }, pipeline: report() });
+    expect(state).toEqual({ kind: 'recorded', report: report() });
+  });
+
+  it('keeps "never extracted" and "extracted before provenance" words apart', () => {
+    // Regression: `null` JSONB used to render "extracted before provenance
+    // tracking — re-extract", which hid a failed or never-run pipeline behind
+    // the claim that an extraction had happened.
+    expect(PIPELINE_NONE_COPY).toMatch(/Not extracted yet/);
+    expect(PIPELINE_NONE_COPY).not.toMatch(/extracted before provenance/);
+    expect(PIPELINE_UNRECORDED_COPY).toMatch(/extracted before provenance tracking/);
+  });
+});
+
+describe('Gemini validation directive', () => {
+  it('tells Gemini to validate the OCR draft against the document', () => {
+    const ctx = buildPreprocessingContext(base());
+    expect(ctx).toContain('DRAFT transcription to VALIDATE');
+    expect(ctx).toContain('corrected text as original_text');
+  });
+
+  it('hands the whole step to Gemini when local OCR produced nothing (fallback)', () => {
+    const ctx = buildPreprocessingContext(
+      base({
+        tesseract: 'failed',
+        tesseractDetail: 'worker init failed',
+        tesseractText: '',
+        indicTrans: 'skipped',
+        indicTransDetail: 'no local OCR text to translate',
+        translatedText: '',
+      }),
+    );
+    expect(ctx).toContain('Tesseract OCR status: failed');
+    expect(ctx).toContain('No usable local OCR text');
+    expect(ctx).not.toContain('DRAFT transcription to VALIDATE');
+  });
+});
+
+describe('indicTransInput', () => {
+  it('trims but otherwise passes short text through', () => {
+    expect(indicTransInput('  land deed  ', 100)).toEqual({ text: 'land deed', truncated: false, chars: 9 });
+  });
+
+  it('caps long text at the budget', () => {
+    const out = indicTransInput('x'.repeat(5000), 1200);
+    expect(out.truncated).toBe(true);
+    expect(out.text).toHaveLength(1200);
+    expect(out.chars).toBe(1200);
+  });
+
+  it('treats a non-positive budget as unlimited', () => {
+    expect(indicTransInput('abc', 0)).toEqual({ text: 'abc', truncated: false, chars: 3 });
+  });
+
+  it('flags truncation only when characters were actually dropped', () => {
+    expect(indicTransInput('x'.repeat(1200), 1200).truncated).toBe(false);
+    expect(indicTransInput('x'.repeat(1201), 1200).truncated).toBe(true);
+  });
+});
+
+describe('indicTransTimeout', () => {
+  it('is a failed step that still falls back to Gemini', () => {
+    const plan = indicTransTimeout(35);
+    expect(plan.status).toBe('failed');
+    expect(plan.detail).toBe('timeout after 35s');
+    expect(plan.warning).toContain('Gemini');
+  });
+
+  it('is worded differently from an unreachable server', () => {
+    // A slow engine and a dead one need different fixes — never the same message.
+    expect(indicTransTimeout(35).warning).not.toBe(indicTransFailure('ECONNREFUSED').warning);
+    expect(indicTransTimeout(35).warning).toContain('timed out');
+    expect(indicTransFailure('ECONNREFUSED').warning).toContain('unreachable');
+  });
+});
+
+describe('indicTransTruncatedWarning', () => {
+  it('reports both counts and who covers the rest', () => {
+    const warning = indicTransTruncatedWarning(5000, 1200);
+    expect(warning).toContain('1200');
+    expect(warning).toContain('5000');
+    expect(warning).toContain('Gemini');
   });
 });

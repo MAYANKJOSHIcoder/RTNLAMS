@@ -16,6 +16,8 @@ interface Res {
   setHeader(key: string, value: string): Res;
 }
 
+// Overridable per environment. The GET health probe validates THIS exact id, so a
+// typo shows up as a red ServiceHealth light instead of a silent 404 per upload.
 const MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.1-flash-lite';
 const MAX_PROMPT = 20_000;
 const MAX_B64_CHARS = 11_000_000; // ~8 MB decoded
@@ -54,8 +56,13 @@ async function verifySupabaseJwt(req: Req): Promise<boolean> {
   return res.ok;
 }
 
-async function fetchModels(key: string): Promise<boolean> {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=${key}`, {
+/**
+ * A green light must prove the CONFIGURED model is usable, not merely that *some*
+ * model is listable — the old `?pageSize=1` probe reported ok while every POST
+ * 404'd because GEMINI_MODEL named a model the key cannot use.
+ */
+async function modelReachable(key: string): Promise<boolean> {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}?key=${key}`, {
     signal: AbortSignal.timeout(8000),
   });
   return res.ok;
@@ -92,8 +99,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
   }
 
   if (req.method === 'GET') {
-    // health probe for ServiceHealth — reports reachability only, no auth needed
-    res.status(200).json({ ok: true, gemini: await fetchModels(key) });
+    // health probe for ServiceHealth — reports reachability of the configured
+    // model only, no auth needed
+    res.status(200).json({ ok: true, model: MODEL, gemini: await modelReachable(key) });
     return;
   }
 

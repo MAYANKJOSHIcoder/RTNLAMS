@@ -51,9 +51,15 @@ export function planTesseract(imageBase64?: string | null, mimeType?: string | n
 }
 
 /** IndicTrans needs local OCR text; without it there is nothing to translate. */
-export function planIndicTrans(tesseractText: string, configured: boolean): StepPlan {
+export function planIndicTrans(tesseractText: string, configured: boolean, sourceLang?: string | null): StepPlan {
   if (!tesseractText.trim()) {
     return { status: 'skipped', detail: 'no local OCR text to translate' };
+  }
+  // Target is always English: an English source has nothing to translate, and
+  // running it through the Indic->English model would emit garbage that Gemini
+  // could mistake for a real translation.
+  if ((sourceLang ?? '').trim().toLowerCase() === 'en') {
+    return { status: 'skipped', detail: 'source language is English (target is English)' };
   }
   if (!configured) {
     return {
@@ -64,6 +70,7 @@ export function planIndicTrans(tesseractText: string, configured: boolean): Step
   }
   return { status: 'ran', detail: '' };
 }
+
 
 export function tesseractFailure(langs: string[], message: string): StepPlan {
   return {
@@ -79,6 +86,38 @@ export function indicTransFailure(message: string): StepPlan {
     detail: message,
     warning: `IndicTrans2 unreachable (${message}) — translation left to Gemini`,
   };
+}
+
+/**
+ * A *slow* engine is not an unreachable one, and on CPU it is by far the more
+ * likely outcome. Both must degrade to Gemini, but the report (and the toast)
+ * has to say which happened, or the next debugging session repeats this one.
+ */
+export function indicTransTimeout(seconds: number): StepPlan {
+  return {
+    status: 'failed',
+    detail: `timeout after ${seconds}s`,
+    warning: `IndicTrans2 timed out after ${seconds}s — translation left to Gemini`,
+  };
+}
+
+/** IndicTrans2 input cap — it feeds Gemini a hint, it does not need the whole page. */
+export interface IndicTransInput {
+  text: string;
+  truncated: boolean;
+  chars: number;
+}
+
+export function indicTransInput(text: string, maxChars: number): IndicTransInput {
+  const clean = text.trim();
+  if (!maxChars || clean.length <= maxChars) {
+    return { text: clean, truncated: false, chars: clean.length };
+  }
+  return { text: clean.slice(0, maxChars), truncated: true, chars: maxChars };
+}
+
+export function indicTransTruncatedWarning(originalChars: number, usedChars: number): string {
+  return `IndicTrans2 input capped at the first ${usedChars} of ${originalChars} characters — Gemini validates the full document`;
 }
 
 
@@ -135,8 +174,18 @@ export function buildPreprocessingContext(input: PreprocessingInput): string {
     ? input.tesseractText.slice(0, 4000)
     : `(not run — ${input.tesseractDetail || 'no local OCR'})`;
   const langHint = input.language ? String(input.language).trim().toLowerCase() : 'unspecified';
+
+  // The fallback contract: whichever local engine is unavailable, Gemini does
+  // that step itself from the attached document. When the channels ARE present,
+  // Gemini's job is validation — it reads the same image the OCR read, so it can
+  // catch mis-read glyphs, digits and amounts instead of trusting them blindly.
+  const noLocalOcr = !input.tesseractText.trim();
+  const validationDirective = noLocalOcr
+    ? 'No usable local OCR text — transcribe and translate the attached document yourself and note it in warnings[].'
+    : 'Treat "Tesseract OCR raw" as a DRAFT transcription to VALIDATE against the attached document: correct mis-read characters (Indic script, survey numbers, dates, stamp-duty amounts), keep untouched anything that matches, and return the corrected text as original_text.';
+
   return [
-    '--- HYBRID PREPROCESSING CONTEXT (DO NOT RE-OCR, RECONCILE THESE) ---',
+    '--- HYBRID PREPROCESSING CONTEXT (VALIDATE THESE CHANNELS AGAINST THE DOCUMENT) ---',
     `Document language hint: ${langHint} (Tesseract langs: ${input.tesseractLangs.join('+') || 'n/a'})`,
     `Tesseract OCR status: ${input.tesseract}`,
     `Tesseract OCR raw: ${raw}`,
@@ -144,6 +193,7 @@ export function buildPreprocessingContext(input: PreprocessingInput): string {
     `IndicTrans detected_language: ${input.detectedLanguage}`,
     `IndicTrans translated_text: ${translationForPrompt(input.translatedText, input.indicTrans)}`,
     '--- END CONTEXT ---',
+    validationDirective,
     'Reconcile only the channels provided above, preserve original_text, include translated_text, detected language, and structured extracted_fields with confidence per field.',
     'If a channel above is unavailable or empty, leave its output empty — do not fabricate or paraphrase it. Return ONLY valid JSON.',
   ].join('\n');
@@ -169,4 +219,41 @@ export function describePipeline(report: PipelineReport): { ocr: string; transla
         : `Gemini only (${report.indicTransDetail || 'IndicTrans2 unavailable'})`;
 
   return { ocr, translation, extraction: 'Gemini structured JSON' };
+}
+
+/**
+ * What the OCR Review modal should say about a row's provenance.
+ *
+ * `ocr_extracted_data` is written as a whole by useGemini(), so there are three
+ * genuinely different situations that used to collapse into one misleading line
+ * ("extracted before provenance tracking — re-extract to record it"):
+ *
+ *  - `none`       — never extracted (null/empty JSONB). Saying "extracted ..."
+ *                   here is a lie and hides a failed or never-run pipeline.
+ *  - `unrecorded` — fields exist, but the run predates the pipeline report.
+ *  - `recorded`   — the full report: which engine produced which channel.
+ */
+export type PipelineState =
+  | { kind: 'none' }
+  | { kind: 'unrecorded'; fields: number }
+  | { kind: 'recorded'; report: PipelineReport };
+
+export const PIPELINE_NONE_COPY =
+  'Not extracted yet — use Re-extract to run Tesseract OCR → IndicTrans2 → Gemini validation on this file.';
+
+export const PIPELINE_UNRECORDED_COPY =
+  'Pipeline: not recorded (extracted before provenance tracking — re-extract to record it)';
+
+export function describePipelineState(
+  extracted: Record<string, unknown> | null | undefined,
+): PipelineState {
+  if (!extracted || Object.keys(extracted).length === 0) return { kind: 'none' };
+  const report = (extracted.pipeline ?? null) as PipelineReport | null;
+  if (!report) {
+    return {
+      kind: 'unrecorded',
+      fields: Object.keys((extracted.extracted_fields as Record<string, unknown>) ?? {}).length,
+    };
+  }
+  return { kind: 'recorded', report };
 }

@@ -10,6 +10,15 @@ export interface AppConfig {
   supabaseAnonKey: string;
   cartoApiKey: string;
   indicTransApiUrl: string;
+  /**
+   * IndicTrans2 is only a *hint* channel — Gemini re-reads the document and
+   * validates the result — so its input is capped and its latency bounded.
+   * Without the timeout, a stalled local engine (5 beams, no KV cache, CPU-only)
+   * held extraction open for minutes and the aborted POST surfaced in the UI as
+   * an opaque "Failed to fetch".
+   */
+  indicTransMaxChars: number;
+  indicTransTimeoutMs: number;
   pdfOcrMaxPages: number;
 }
 
@@ -58,11 +67,16 @@ export function isConfigValid(): boolean {
 export const config: AppConfig = (() => {
   const e = env();
   const maxPagesParsed = parseInt(e.VITE_PDF_OCR_MAX_PAGES ?? '', 10);
+  const indicTransChars = parseInt(e.VITE_INDICTRAN_MAX_CHARS ?? '', 10);
+  const indicTransTimeout = parseInt(e.VITE_INDICTRAN_TIMEOUT_MS ?? '', 10);
   return {
     supabaseUrl: e.VITE_SUPABASE_URL ?? '',
     supabaseAnonKey: e.VITE_SUPABASE_ANON_KEY ?? '',
     cartoApiKey: getVal('VITE_CARTO_API_KEY'),
     indicTransApiUrl: e.VITE_INDICTRAN_API_URL ?? '',
+    indicTransMaxChars: Number.isFinite(indicTransChars) && indicTransChars > 0 ? indicTransChars : 1200,
+    indicTransTimeoutMs:
+      Number.isFinite(indicTransTimeout) && indicTransTimeout > 0 ? indicTransTimeout : 35_000,
     pdfOcrMaxPages: Number.isFinite(maxPagesParsed) ? maxPagesParsed : 5,
   };
 })();

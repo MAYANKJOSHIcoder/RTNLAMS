@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { callGemini, extractFromFile, consumePipelineWarnings, consumePipelineReport } from '../lib/gemini/client';
+import { callGemini, extractFromFile, consumePipelineWarnings, consumePipelineReport, restorePipelineReport } from '../lib/gemini/client';
 import { PROMPT_MAP, type PromptType } from '../lib/gemini/prompts';
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
 import type { GeminiExtractionResponse } from '../lib/types';
@@ -61,8 +61,16 @@ export function useGeminiExtraction() {
           })
           .eq('id', documentId)
           .select('id');
-        if (error) throw new Error(error.message);
-        if (!updated || updated.length === 0) throw new Error('Extraction not saved — RLS blocked the write (need admin/field_officer role)');
+        // A failed write must not swallow the provenance of the run that just
+        // happened — put it back so a retry still records which engine ran.
+        if (error) {
+          restorePipelineReport(pipeline);
+          throw new Error(error.message);
+        }
+        if (!updated || updated.length === 0) {
+          restorePipelineReport(pipeline);
+          throw new Error('Extraction not saved — RLS blocked the write (need admin/field_officer role)');
+        }
       }
 
       return parsed;
@@ -72,7 +80,12 @@ export function useGeminiExtraction() {
       consumePipelineWarnings().forEach((w) => toast(w, { icon: '⚠️' }));
       toast.success('Extraction completed');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      // Tesseract/IndicTrans2 failures are why a run degraded to Gemini-only.
+      // They are non-fatal, so surface them even when the mutation itself fails.
+      consumePipelineWarnings().forEach((w) => toast(w, { icon: '⚠️' }));
+      toast.error(e.message);
+    },
   });
 }
 

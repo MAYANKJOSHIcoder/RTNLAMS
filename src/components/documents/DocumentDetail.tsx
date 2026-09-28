@@ -12,7 +12,9 @@ import { useRecalcRiskForParcel } from '../../hooks/useRisk';
 import { useParcels } from '../../hooks/useParcels';
 import { useGeminiExtraction } from '../../hooks/useGemini';
 import { getSignedUrl, downloadObject } from '../../lib/supabase/storage';
-import { describePipeline, type PipelineReport } from '../../lib/gemini/pipeline';
+import { describePipeline, describePipelineState, PIPELINE_NONE_COPY, PIPELINE_UNRECORDED_COPY } from '../../lib/gemini/pipeline';
+import { useAuth } from '../../context/AuthContext';
+import { can, canEditDocument } from '../../lib/permissions';
 import type { Document as DocType, Parcel } from '../../lib/types';
 import type { PromptType } from '../../lib/gemini/prompts';
 
@@ -129,6 +131,7 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [previewState, setPreviewState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [copied, setCopied] = useState<'translated' | 'raw' | null>(null);
+  const { profile } = useAuth();
   const update = useUpdateDocument();
   const recalcRisk = useRecalcRiskForParcel();
   const extract = useGeminiExtraction();
@@ -156,12 +159,15 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
   );
   const isDirty = editedKeys.size > 0;
 
-  // Provenance written by useGemini (ocr_extracted_data.pipeline). Absent on
-  // documents extracted before this existed — the UI says so instead of lying.
-  const pipeline = useMemo(
-    () => ((extracted?.pipeline as PipelineReport | undefined) ?? null),
-    [extracted],
+  // Provenance written by useGemini (ocr_extracted_data.pipeline). Read it off the
+  // live prop rather than the `extracted` state so the header flips in the same
+  // render the refetched row arrives. "Never extracted" and "extracted before
+  // provenance existed" are different states and must not share one line of copy.
+  const pipelineState = useMemo(
+    () => describePipelineState(document?.ocr_extracted_data),
+    [document?.ocr_extracted_data],
   );
+  const pipeline = pipelineState.kind === 'recorded' ? pipelineState.report : null;
   const pipelineText = useMemo(() => (pipeline ? describePipeline(pipeline) : null), [pipeline]);
 
   useEffect(() => {
@@ -274,6 +280,16 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
 
   if (!document) return null;
 
+  // The DB lets only admins — or the field officer who uploaded the row — persist
+  // an extraction (001_schema.sql `fo_update_documents`). Without this gate an
+  // auditor could click Re-extract, run the whole Tesseract → IndicTrans2 → Gemini
+  // pipeline, and watch RLS silently discard the result, which looks exactly like
+  // "extraction is broken".
+  const canWrite = can(profile?.role, 'document.edit') && canEditDocument(profile, document);
+  const writeBlockedReason = canWrite
+    ? undefined
+    : 'Your role can view this document but not write extraction results (needs admin, or the field officer who uploaded it).';
+
   const overallConf = document.ocr_confidence;
   const mime = document.mime_type ?? '';
   const fileName = document.file_name ?? '';
@@ -300,14 +316,37 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
-            <Button size="sm" variant="secondary" onClick={handleReextract} loading={extract.isPending} leftIcon={<RefreshCw size={14} />}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleReextract}
+              loading={extract.isPending}
+              disabled={!canWrite}
+              title={writeBlockedReason}
+              leftIcon={<RefreshCw size={14} />}
+            >
               Re-extract
             </Button>
           </div>
-          <Button size="sm" variant="danger" onClick={() => setStatus('flagged')} loading={update.isPending} leftIcon={<ThumbsDown size={14} />}>
+          <Button
+            size="sm"
+            variant="danger"
+            onClick={() => setStatus('flagged')}
+            loading={update.isPending}
+            disabled={!canWrite}
+            title={writeBlockedReason}
+            leftIcon={<ThumbsDown size={14} />}
+          >
             Reject
           </Button>
-          <Button size="sm" onClick={() => setStatus('verified')} loading={update.isPending} leftIcon={<ThumbsUp size={14} />}>
+          <Button
+            size="sm"
+            onClick={() => setStatus('verified')}
+            loading={update.isPending}
+            disabled={!canWrite}
+            title={writeBlockedReason}
+            leftIcon={<ThumbsUp size={14} />}
+          >
             Verify
           </Button>
           <Button size="sm" variant="secondary" onClick={handleDownload} loading={loading} leftIcon={<Download size={14} />}>
@@ -319,9 +358,12 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
             variant="secondary"
             onClick={saveEdits}
             loading={update.isPending}
-            disabled={!isDirty}
+            disabled={!isDirty || !canWrite}
             leftIcon={<Save size={14} />}
-            title={isDirty ? `Save ${editedKeys.size} edited field(s)` : 'No unsaved field changes'}
+            title={
+              writeBlockedReason ??
+              (isDirty ? `Save ${editedKeys.size} edited field(s)` : 'No unsaved field changes')
+            }
           >
             {isDirty ? `Save ${editedKeys.size} Edit${editedKeys.size === 1 ? '' : 's'}` : 'No changes'}
           </Button>
@@ -358,14 +400,19 @@ export default function DocumentDetail({ document, onClose }: DocumentDetailProp
                   <span>Translation: <span className="text-slate-700">{pipelineText.translation}</span></span>
                   <span>Extraction: <span className="text-slate-700">{pipelineText.extraction}</span></span>
                 </>
+              ) : pipelineState.kind === 'unrecorded' ? (
+                <span>{PIPELINE_UNRECORDED_COPY}</span>
               ) : (
-                <span>Pipeline: not recorded (extracted before provenance tracking — re-extract to record it)</span>
+                <span>{PIPELINE_NONE_COPY}</span>
               )}
             </div>
             {pipeline && (pipeline.tesseract === 'failed' || (pipeline.tesseract === 'skipped' && pipeline.indicTrans !== 'ran')) && (
               <p className="mt-2 text-[11px] text-amber-600">
-                Local OCR did not run ({pipeline.tesseractDetail || pipeline.tesseract}) — values come from Gemini vision alone.
+                Local OCR did not run ({pipeline.tesseractDetail || pipeline.tesseract}) — values come from Gemini reading the document directly.
               </p>
+            )}
+            {!canWrite && (
+              <p className="mt-2 text-[11px] text-amber-600">{writeBlockedReason}</p>
             )}
           </div>
           <Badge variant={statusToBadgeVariant(document.status)} className="text-sm shrink-0">

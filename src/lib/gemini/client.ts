@@ -18,6 +18,9 @@ import {
   buildPreprocessingContext,
   detectScriptLang,
   indicTransFailure,
+  indicTransInput,
+  indicTransTimeout,
+  indicTransTruncatedWarning,
   planIndicTrans,
   planTesseract,
   tesseractFailure,
@@ -49,6 +52,16 @@ export function consumePipelineReport(): PipelineReport | null {
   const r = lastPipelineReport;
   lastPipelineReport = null;
   return r;
+}
+
+/**
+ * Put a report back after the caller failed to persist it (Gemini error, RLS
+ * denial, offline). Without this the next successful run of the SAME document
+ * would still be recorded, but a retry-after-failure would have lost the
+ * provenance of the run that actually produced the bytes.
+ */
+export function restorePipelineReport(report: PipelineReport | null): void {
+  if (report && !lastPipelineReport) lastPipelineReport = report;
 }
 
 const timestamps: number[] = [];
@@ -182,37 +195,66 @@ interface IndicTransOutcome {
 // prompt and could be persisted into documents.translated_text as if a real
 // translation had happened. An unavailable engine now reports as unavailable
 // and Gemini is told explicitly not to invent it.
-async function runIndicTrans(rawText: string): Promise<IndicTransOutcome> {
-  const plan = planIndicTrans(rawText, isIndicTransConfigured());
+//
+// Two bounds keep this from breaking the whole extraction:
+//  - the input is capped (IndicTrans2 is a hint channel; Gemini validates the
+//    full document anyway), and
+//  - the request is aborted after config.indicTransTimeoutMs. A CPU-only server
+//    with 5 beams and no KV cache needed minutes per page; the browser then
+//    aborted on reload and reported an opaque "Failed to fetch".
+async function runIndicTrans(rawText: string, appLang?: string | null): Promise<IndicTransOutcome> {
+  const plan = planIndicTrans(rawText, isIndicTransConfigured(), appLang);
   if (plan.status !== 'ran') {
     if (plan.warning) pipelineWarnings.push(plan.warning);
     return { detectedLanguage: detectScriptLang(rawText), translatedText: '', status: plan.status, detail: plan.detail };
   }
 
+  const input = indicTransInput(rawText, config.indicTransMaxChars);
+  if (input.truncated) {
+    // Recorded before the call so the warning survives a timeout too.
+    pipelineWarnings.push(indicTransTruncatedWarning(rawText.length, input.chars));
+  }
+
+  // Pass the document's selected language when known: the server's script
+  // detector cannot distinguish Devanagari Hindi from Marathi, and passing
+  // 'auto' forces an unnecessary script scan.
+  const known = (appLang ?? '').trim().toLowerCase();
+  const srcLang = known && known !== 'en' ? known : 'auto';
+
+  const timeoutMs = config.indicTransTimeoutMs;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${config.indicTransApiUrl}/translate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sentences: [rawText],
-        src_lang: 'auto',  // server will handle detection via preprocessing
+        sentences: [input.text],
+        src_lang: srcLang,
         tgt_lang: 'en',    // translate to English for Gemini
       }),
+      signal: controller.signal,
     });
     if (!res.ok) throw new Error(`IndicTrans ${res.status}`);
-    const data = await res.json();
+    const data = (await res.json()) as { translations?: unknown; src_lang?: string; partial?: boolean };
+    const segments = Array.isArray(data.translations) ? data.translations.map(String) : [];
     return {
       detectedLanguage: data.src_lang ?? detectScriptLang(rawText), // server detects via script ranges
-      translatedText: String(data.translations?.[0] ?? ''),
+      // The server returns one entry per sentence — join them, or a whole page
+      // would collapse to whichever sentence came first.
+      translatedText: segments.join(' ').trim(),
       status: 'ran',
-      detail: `HTTP ${res.status}`,
+      detail: data.partial ? `HTTP ${res.status} (partial)` : `HTTP ${res.status}`,
     };
   } catch (e) {
-    const message = (e as Error).message;
-    console.warn('[gemini] IndicTrans server call failed, continuing without translation:', message);
-    const fail = indicTransFailure(message);
+    const err = e as Error;
+    // AbortError = we gave up waiting; anything else = the call never completed.
+    const fail = err.name === 'AbortError' ? indicTransTimeout(Math.round(timeoutMs / 1000)) : indicTransFailure(err.message);
     if (fail.warning) pipelineWarnings.push(fail.warning);
-    return { detectedLanguage: detectScriptLang(rawText), translatedText: '', status: 'failed', detail: message };
+    console.warn('[gemini] IndicTrans step failed, continuing without translation:', fail.detail);
+    return { detectedLanguage: detectScriptLang(rawText), translatedText: '', status: 'failed', detail: fail.detail };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -255,7 +297,7 @@ export async function callGemini({ prompt, imageBase64, mimeType = 'image/jpeg',
   let indicStatus: StepStatus = 'skipped';
   let indicDetail = 'no local OCR text to translate';
   if (tesseractText) {
-    const indic = await runIndicTrans(tesseractText);
+    const indic = await runIndicTrans(tesseractText, language);
     indicTransText = indic.translatedText;
     detectedLanguage = indic.detectedLanguage;
     indicStatus = indic.status;
